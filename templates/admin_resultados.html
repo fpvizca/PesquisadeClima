@@ -5,7 +5,13 @@
 {% block content %}
 <div class="alert alert-info d-flex justify-content-between align-items-center">
   <span><i class="bi bi-bar-chart"></i> <strong>{{ ciclo.nome }}</strong></span>
-  <span class="badge bg-primary">{{ total_respondentes }} respondentes</span>
+  <div>
+    <span class="badge bg-info me-2">{{ total_habilitados }} habilitados</span>
+    <span class="badge bg-success me-2">{{ total_respostas }} respostas</span>
+    <a href="{{ url_for('admin_exportar_excel') }}" class="btn btn-success btn-sm">
+      <i class="bi bi-file-earmark-excel"></i> Exportar Excel
+    </a>
+  </div>
 </div>
 
 {% for item in dados %}

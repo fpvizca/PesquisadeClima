@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - Pesquisa de Clima Vizca{% endblock %}
+{% block titulo %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+  <div class="col-md-3">
+    <div class="card stat-card">
+      <div class="icon" style="background:#e0e7ff; color:#4f46e5;">
+        <i class="bi bi-people"></i>
+      </div>
+      <div class="number">{{ total_respostas }}</div>
+      <div class="label">Respostas Recebidas</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card stat-card">
+      <div class="icon" style="background:#d1fae5; color:#059669;">
+        <i class="bi bi-clipboard-check"></i>
+      </div>
+      <div class="number">{{ total_perguntas }}</div>
+      <div class="label">Total de Perguntas</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card stat-card">
+      <div class="icon" style="background:#fef3c7; color:#d97706;">
+        <i class="bi bi-calendar-check"></i>
+      </div>
+      <div class="number">{{ ciclo_atual.nome if ciclo_atual else '-' }}</div>
+      <div class="label">Ciclo Ativo</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card stat-card">
+      <div class="icon" style="background:#ede9fe; color:#7c3aed;">
+        <i class="bi bi-graph-up"></i>
+      </div>
+      <div class="number">{{ '100%' if total_respostas > 0 else '0%' }}</div>
+      <div class="label">Taxa de Participação</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <i class="bi bi-info-circle"></i> Bem-vindo, {{ user.nome }}!
+  </div>
+  <div class="card-body">
+    <p>Este é o painel da <strong>Pesquisa de Clima Vizca</strong>.</p>
+    <p>Utilize o menu lateral para navegar entre as funcionalidades do sistema.</p>
+    {% if is_admin %}
+    <div class="alert alert-info">
+      <i class="bi bi-shield-check"></i> Você está logado como <strong>Administrador</strong>.
+      Acesse "Gerenciar Formulário" para configurar as perguntas da pesquisa.
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

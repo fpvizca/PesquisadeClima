@@ -1,7 +1,7 @@
 import os
 from datetime import datetime, timedelta
 from db import get_db, init_db, init_app
-from auth import hash_senha, usuario_logado, has_role
+from auth import hash_senha, api_request, upsert_usuario_externo, usuario_logado, has_role
 from flask import Flask, render_template, request, redirect, session, url_for, flash
 
 app = Flask(__name__)
@@ -22,9 +22,13 @@ def erro_interno(e):
 
 @app.context_processor
 def inject_globals():
-    result = dict(now=datetime.now(), has_role=has_role, is_admin=False)
+    result = dict(now=datetime.now(), today=datetime.now().strftime('%Y%m%d'), has_role=has_role, is_admin=False, is_gestor=False, is_diretoria=False)
     if 'usuario_id' in session:
-        result['is_admin'] = has_role(session['usuario_id'], 'admin')
+        db = get_db()
+        user_id = session['usuario_id']
+        result['is_admin'] = has_role(user_id, 'admin')
+        result['is_gestor'] = has_role(user_id, 'gestor')
+        result['is_diretoria'] = has_role(user_id, 'diretoria')
     return result
 
 @app.route('/')
@@ -41,21 +45,35 @@ def login():
         flash('Informe o usuário.', 'danger')
         return redirect(url_for('index'))
 
+    # Tenta autenticar via API externa primeiro
+    api_result = api_request('POST', '/auth/login', {'login': login_input, 'password': senha})
+    if api_result.get('success') and api_result.get('user'):
+        user_data = api_result['user']
+        db = get_db()
+        usuario_id = upsert_usuario_externo(user_data)
+        user = db.execute("SELECT * FROM usuarios WHERE id = ?", (usuario_id,)).fetchone()
+        if user and user['ativo']:
+            session.permanent = True
+            session['usuario_id'] = user['id']
+            flash('Login realizado com sucesso!', 'success')
+            return redirect(url_for('dashboard'))
+        flash('Usuário desativado.', 'danger')
+        return redirect(url_for('index'))
+
+    # Fallback: autenticação local (desenvolvimento)
     db = get_db()
     user = db.execute("SELECT * FROM usuarios WHERE (email = ? OR login = ?) AND ativo = 1", (login_input, login_input)).fetchone()
     if user and user['senha_hash'] == hash_senha(senha):
         session.permanent = True
         session['usuario_id'] = user['id']
-        session['usuario_nome'] = user['nome']
         flash('Login realizado com sucesso!', 'success')
-        return redirect(url_for('pesquisa'))
+        return redirect(url_for('dashboard'))
     flash('Usuário ou senha inválidos.', 'danger')
     return redirect(url_for('index'))
 
 @app.route('/logout')
 def logout():
     session.pop('usuario_id', None)
-    session.pop('usuario_nome', None)
     flash('Sessão encerrada.', 'info')
     return redirect(url_for('index'))
 

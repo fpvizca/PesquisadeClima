@@ -10,8 +10,12 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
   <div>
     <span class="badge bg-primary me-2">{{ ciclo.nome }}</span>
-    <span class="badge bg-success">{{ total_respondentes }} respondentes</span>
+    <span class="badge bg-info me-2">{{ total_habilitados }} habilitados</span>
+    <span class="badge bg-success">{{ total_respostas }} respostas</span>
   </div>
+  <a href="{{ url_for('admin_exportar_excel') }}" class="btn btn-success">
+    <i class="bi bi-file-earmark-excel"></i> Exportar Excel
+  </a>
 </div>
 
 <!-- Resumo Geral -->
@@ -33,8 +37,16 @@
   <div class="col-md-3">
     <div class="card text-center">
       <div class="card-body">
-        <h3 class="text-success">{{ total_respondentes }}</h3>
-        <small class="text-muted">Respondentes</small>
+        <h3 class="text-info">{{ total_habilitados }}</h3>
+        <small class="text-muted">Habilitados</small>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-center">
+      <div class="card-body">
+        <h3 class="text-success">{{ total_respostas }}</h3>
+        <small class="text-muted">Respostas</small>
       </div>
     </div>
   </div>

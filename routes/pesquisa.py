@@ -5,6 +5,8 @@ from auth import login_required, has_role
 from db import get_db
 import ollama_helper
 
+from flask import make_response
+
 def init_routes(app):
 
     @app.route('/pesquisa')
@@ -17,10 +19,13 @@ def init_routes(app):
             flash('Nenhum ciclo ativo encontrado.', 'warning')
             return redirect(url_for('index'))
 
+        cookie_name = f'clima_respondeu_{ciclo["id"]}'
+        ja_respondeu_cookie = request.cookies.get(cookie_name)
+
         ja_respondeu = db.execute(
-            "SELECT COUNT(*) as c FROM respostas WHERE ciclo_id = ? AND usuario_id = ?",
+            "SELECT COUNT(*) as c FROM respondentes WHERE ciclo_id = ? AND usuario_id = ?",
             (ciclo['id'], usuario_id)
-        ).fetchone()['c']
+        ).fetchone()['c'] or ja_respondeu_cookie
 
         secoes = db.execute("SELECT * FROM secoes WHERE ativo = 1 ORDER BY ordem").fetchall()
         total_perguntas = db.execute(
@@ -56,15 +61,15 @@ def init_routes(app):
             return redirect(url_for('pesquisa'))
 
         perguntas = db.execute(
-            "SELECT * FROM perguntas WHERE secao_id = ? ORDER BY ordem",
+            "SELECT * FROM perguntas WHERE secao_id = ? AND ativo = 1 ORDER BY ordem",
             (secao_id,)
         ).fetchall()
 
         respostas_existentes = {}
         for p in perguntas:
             r = db.execute(
-                "SELECT valor, comentario FROM respostas WHERE ciclo_id = ? AND usuario_id = ? AND pergunta_id = ?",
-                (ciclo['id'], usuario_id, p['id'])
+                "SELECT valor, comentario FROM respostas WHERE ciclo_id = ? AND pergunta_id = ?",
+                (ciclo['id'], p['id'])
             ).fetchone()
             if r:
                 respostas_existentes[p['id']] = {'valor': r['valor'], 'comentario': r['comentario']}
@@ -80,19 +85,27 @@ def init_routes(app):
 
                 if valor or comentario:
                     db.execute("""
-                        INSERT INTO respostas (ciclo_id, usuario_id, pergunta_id, valor, comentario)
-                        VALUES (?, ?, ?, ?, ?)
-                        ON CONFLICT(ciclo_id, usuario_id, pergunta_id)
+                        INSERT INTO respostas (ciclo_id, pergunta_id, valor, comentario)
+                        VALUES (?, ?, ?, ?)
+                        ON CONFLICT(ciclo_id, pergunta_id)
                         DO UPDATE SET valor = excluded.valor, comentario = excluded.comentario, respondido_em = CURRENT_TIMESTAMP
-                    """, (ciclo['id'], usuario_id, p['id'], valor if valor else None, comentario if comentario else None))
+                    """, (ciclo['id'], p['id'], valor if valor else None, comentario if comentario else None))
             db.commit()
 
             proximo_index = secao_index + 1
             if proximo_index < len(secoes):
                 return redirect(url_for('pesquisa_secao', secao_id=secoes[proximo_index]['id']))
             else:
+                db.execute(
+                    "INSERT OR IGNORE INTO respondentes (ciclo_id, usuario_id) VALUES (?, ?)",
+                    (ciclo['id'], usuario_id)
+                )
+                db.commit()
                 flash('Pesquisa respondida com sucesso!', 'success')
-                return redirect(url_for('minhas_respostas'))
+                resp = make_response(redirect(url_for('minhas_respostas')))
+                cookie_name = f'clima_respondeu_{ciclo["id"]}'
+                resp.set_cookie(cookie_name, '1', max_age=60*60*24*365)
+                return resp
 
         proxima_secao = secoes[secao_index + 1]['id'] if secao_index + 1 < len(secoes) else None
 
@@ -117,29 +130,17 @@ def init_routes(app):
             flash('Nenhum ciclo ativo encontrado.', 'warning')
             return redirect(url_for('index'))
 
-        secoes = db.execute("SELECT * FROM secoes WHERE ativo = 1 ORDER BY ordem").fetchall()
-        dados = []
-        for secao in secoes:
-            perguntas = db.execute(
-                "SELECT * FROM perguntas WHERE secao_id = ? ORDER BY ordem",
-                (secao['id'],)
-            ).fetchall()
-            perguntas_com_resposta = []
-            for p in perguntas:
-                r = db.execute(
-                    "SELECT valor, comentario FROM respostas WHERE ciclo_id = ? AND usuario_id = ? AND pergunta_id = ?",
-                    (ciclo['id'], usuario_id, p['id'])
-                ).fetchone()
-                perguntas_com_resposta.append({
-                    'pergunta': p,
-                    'valor': r['valor'] if r else None,
-                    'comentario': r['comentario'] if r else None
-                })
-            dados.append({'secao': secao, 'perguntas': perguntas_com_resposta})
+        cookie_name = f'clima_respondeu_{ciclo["id"]}'
+        ja_respondeu_cookie = request.cookies.get(cookie_name)
+
+        ja_respondeu = db.execute(
+            "SELECT COUNT(*) as c FROM respondentes WHERE ciclo_id = ? AND usuario_id = ?",
+            (ciclo['id'], usuario_id)
+        ).fetchone()['c'] or ja_respondeu_cookie
 
         return render_template('minhas_respostas.html',
             ciclo=ciclo,
-            dados=dados
+            ja_respondeu=ja_respondeu
         )
 
     @app.route('/admin/resultados')
@@ -160,7 +161,7 @@ def init_routes(app):
         dados = []
         for secao in secoes:
             perguntas = db.execute(
-                "SELECT * FROM perguntas WHERE secao_id = ? ORDER BY ordem",
+                "SELECT * FROM perguntas WHERE secao_id = ? AND ativo = 1 ORDER BY ordem",
                 (secao['id'],)
             ).fetchall()
             perguntas_com_stats = []
@@ -194,15 +195,20 @@ def init_routes(app):
                     })
             dados.append({'secao': secao, 'perguntas': perguntas_com_stats})
 
-        total_respondentes = db.execute(
-            "SELECT COUNT(DISTINCT usuario_id) as c FROM respostas WHERE ciclo_id = ?",
+        total_habilitados = db.execute(
+            "SELECT COUNT(*) as c FROM usuario_roles WHERE role = 'colaborador'"
+        ).fetchone()['c']
+
+        total_respostas = db.execute(
+            "SELECT COUNT(*) as c FROM respostas WHERE ciclo_id = ?",
             (ciclo['id'],)
         ).fetchone()['c']
 
         return render_template('admin_resultados.html',
             ciclo=ciclo,
             dados=dados,
-            total_respondentes=total_respondentes
+            total_habilitados=total_habilitados,
+            total_respostas=total_respostas
         )
 
     @app.route('/admin/analise')
@@ -220,15 +226,19 @@ def init_routes(app):
             return redirect(url_for('index'))
 
         secoes = db.execute("SELECT * FROM secoes WHERE ativo = 1 ORDER BY ordem").fetchall()
-        total_respondentes = db.execute(
-            "SELECT COUNT(DISTINCT usuario_id) as c FROM respostas WHERE ciclo_id = ?",
+        total_habilitados = db.execute(
+            "SELECT COUNT(*) as c FROM usuario_roles WHERE role = 'colaborador'"
+        ).fetchone()['c']
+
+        total_respostas_db = db.execute(
+            "SELECT COUNT(*) as c FROM respostas WHERE ciclo_id = ?",
             (ciclo['id'],)
         ).fetchone()['c']
 
         dados_secoes = []
         for secao in secoes:
             perguntas = db.execute(
-                "SELECT * FROM perguntas WHERE secao_id = ? AND tipo = 'escala' ORDER BY ordem",
+                "SELECT * FROM perguntas WHERE secao_id = ? AND ativo = 1 AND tipo = 'escala' ORDER BY ordem",
                 (secao['id'],)
             ).fetchall()
 
@@ -297,7 +307,8 @@ def init_routes(app):
         return render_template('admin_analise.html',
             ciclo=ciclo,
             dados_secoes=dados_secoes,
-            total_respondentes=total_respondentes,
+            total_habilitados=total_habilitados,
+            total_respostas=total_respostas_db,
             perguntas_abertas=perguntas_abertas
         )
 
@@ -341,3 +352,256 @@ Seja objetivo, use dados numéricos e escreva em português brasileiro profissio
 
         response = ollama_helper.generate(prompt)
         return jsonify({'response': response})
+
+    @app.route('/admin/exportar-excel')
+    @login_required
+    def admin_exportar_excel():
+        from flask import send_file
+        import io
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
+        db = get_db()
+        if not has_role(session['usuario_id'], 'admin'):
+            flash('Acesso negado.', 'danger')
+            return redirect(url_for('pesquisa'))
+
+        ciclo = db.execute("SELECT * FROM ciclos WHERE ativo = 1 ORDER BY id DESC LIMIT 1").fetchone()
+        if not ciclo:
+            flash('Nenhum ciclo ativo encontrado.', 'warning')
+            return redirect(url_for('index'))
+
+        wb = Workbook()
+
+        # Estilos
+        header_font = Font(name='Arial', bold=True, color='FFFFFF', size=11)
+        header_fill = PatternFill(start_color='1F4E79', end_color='1F4E79', fill_type='solid')
+        section_font = Font(name='Arial', bold=True, size=12, color='1F4E79')
+        normal_font = Font(name='Arial', size=10)
+        green_fill = PatternFill(start_color='C6EFCE', end_color='C6EFCE', fill_type='solid')
+        yellow_fill = PatternFill(start_color='FFEB9C', end_color='FFEB9C', fill_type='solid')
+        red_fill = PatternFill(start_color='FFC7CE', end_color='FFC7CE', fill_type='solid')
+        thin_border = Border(
+            left=Side(style='thin'), right=Side(style='thin'),
+            top=Side(style='thin'), bottom=Side(style='thin')
+        )
+
+        # Aba 1: Resumo por Seção
+        ws_resumo = wb.active
+        ws_resumo.title = 'Resumo'
+        ws_resumo.column_dimensions['A'].width = 35
+        ws_resumo.column_dimensions['B'].width = 15
+        ws_resumo.column_dimensions['C'].width = 18
+        ws_resumo.column_dimensions['D'].width = 20
+
+        ws_resumo.merge_cells('A1:D1')
+        ws_resumo['A1'] = ciclo['nome']
+        ws_resumo['A1'].font = Font(name='Arial', bold=True, size=14, color='1F4E79')
+
+        total_habilitados = db.execute(
+            "SELECT COUNT(*) as c FROM usuario_roles WHERE role = 'colaborador'"
+        ).fetchone()['c']
+
+        total_respostas = db.execute(
+            "SELECT COUNT(*) as c FROM respostas WHERE ciclo_id = ?",
+            (ciclo['id'],)
+        ).fetchone()['c']
+
+        ws_resumo['A2'] = f'Habilitados: {total_habilitados} | Respostas: {total_respostas}'
+        ws_resumo['A2'].font = Font(name='Arial', size=10, italic=True)
+
+        row = 4
+        headers = ['Seção', 'Média', '% Satisfatório', 'Total Respostas']
+        for col, h in enumerate(headers, 1):
+            cell = ws_resumo.cell(row=row, column=col, value=h)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal='center')
+            cell.border = thin_border
+
+        secoes = db.execute("SELECT * FROM secoes WHERE ativo = 1 ORDER BY ordem").fetchall()
+        row = 5
+        for secao in secoes:
+            perguntas = db.execute(
+                "SELECT * FROM perguntas WHERE secao_id = ? AND ativo = 1 AND tipo = 'escala' ORDER BY ordem",
+                (secao['id'],)
+            ).fetchall()
+
+            medias = []
+            total_pond = 0
+            total_satisf = 0
+
+            for p in perguntas:
+                contagem = db.execute("""
+                    SELECT valor, COUNT(*) as cnt FROM respostas
+                    WHERE ciclo_id = ? AND pergunta_id = ? AND valor IS NOT NULL
+                    GROUP BY valor
+                """, (ciclo['id'], p['id'])).fetchall()
+
+                mapa = {r['valor']: r['cnt'] for r in contagem}
+                total_p = sum(mapa.values())
+                if total_p > 0:
+                    nota = (mapa.get('Concordo totalmente', 0) * 5 + mapa.get('Concordo', 0) * 4 +
+                            mapa.get('Não concordo e nem discordo', 0) * 3 + mapa.get('Discordo', 0) * 2 +
+                            mapa.get('Discordo totalmente', 0) * 1) / total_p
+                    medias.append(nota)
+                    total_pond += total_p
+                    total_satisf += mapa.get('Concordo totalmente', 0) + mapa.get('Concordo', 0)
+
+            media = round(sum(medias) / len(medias), 2) if medias else None
+            pct = round(total_satisf / total_pond * 100, 1) if total_pond > 0 else 0
+
+            ws_resumo.cell(row=row, column=1, value=secao['nome']).font = normal_font
+            ws_resumo.cell(row=row, column=1).border = thin_border
+
+            cell_media = ws_resumo.cell(row=row, column=2, value=media)
+            cell_media.font = normal_font
+            cell_media.alignment = Alignment(horizontal='center')
+            cell_media.border = thin_border
+            if media:
+                cell_media.fill = green_fill if media >= 4 else yellow_fill if media >= 3 else red_fill
+
+            cell_pct = ws_resumo.cell(row=row, column=3, value=f'{pct}%')
+            cell_pct.font = normal_font
+            cell_pct.alignment = Alignment(horizontal='center')
+            cell_pct.border = thin_border
+
+            ws_resumo.cell(row=row, column=4, value=total_pond).font = normal_font
+            ws_resumo.cell(row=row, column=4).alignment = Alignment(horizontal='center')
+            ws_resumo.cell(row=row, column=4).border = thin_border
+
+            row += 1
+
+        # Aba 2: Detalhamento por Pergunta
+        ws_detalhe = wb.create_sheet('Detalhamento')
+        ws_detalhe.column_dimensions['A'].width = 10
+        ws_detalhe.column_dimensions['B'].width = 60
+        ws_detalhe.column_dimensions['C'].width = 12
+        ws_detalhe.column_dimensions['D'].width = 12
+        ws_detalhe.column_dimensions['E'].width = 12
+        ws_detalhe.column_dimensions['F'].width = 12
+        ws_detalhe.column_dimensions['G'].width = 12
+        ws_detalhe.column_dimensions['H'].width = 12
+        ws_detalhe.column_dimensions['I'].width = 12
+
+        row = 1
+        headers2 = ['Código', 'Pergunta', 'Total', 'Média', 'Conc. Totalmente', 'Concordo', 'Neutro', 'Discordo', 'Disc. Totalmente']
+        for col, h in enumerate(headers2, 1):
+            cell = ws_detalhe.cell(row=row, column=col, value=h)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal='center', wrap_text=True)
+            cell.border = thin_border
+
+        row = 2
+        for secao in secoes:
+            ws_detalhe.merge_cells(start_row=row, start_column=1, end_row=row, end_column=9)
+            cell = ws_detalhe.cell(row=row, column=1, value=secao['nome'])
+            cell.font = section_font
+            row += 1
+
+            perguntas = db.execute(
+                "SELECT * FROM perguntas WHERE secao_id = ? AND ativo = 1 ORDER BY ordem",
+                (secao['id'],)
+            ).fetchall()
+
+            for p in perguntas:
+                contagem = db.execute("""
+                    SELECT valor, COUNT(*) as cnt FROM respostas
+                    WHERE ciclo_id = ? AND pergunta_id = ? AND valor IS NOT NULL
+                    GROUP BY valor
+                """, (ciclo['id'], p['id'])).fetchall()
+
+                mapa = {r['valor']: r['cnt'] for r in contagem}
+                total_p = sum(mapa.values())
+
+                if total_p > 0 and p['tipo'] == 'escala':
+                    nota = (mapa.get('Concordo totalmente', 0) * 5 + mapa.get('Concordo', 0) * 4 +
+                            mapa.get('Não concordo e nem discordo', 0) * 3 + mapa.get('Discordo', 0) * 2 +
+                            mapa.get('Discordo totalmente', 0) * 1) / total_p
+                    nota = round(nota, 2)
+                else:
+                    nota = None
+
+                ws_detalhe.cell(row=row, column=1, value=p['codigo']).font = normal_font
+                ws_detalhe.cell(row=row, column=1).border = thin_border
+                ws_detalhe.cell(row=row, column=2, value=p['texto']).font = normal_font
+                ws_detalhe.cell(row=row, column=2).border = thin_border
+                ws_detalhe.cell(row=row, column=3, value=total_p).font = normal_font
+                ws_detalhe.cell(row=row, column=3).alignment = Alignment(horizontal='center')
+                ws_detalhe.cell(row=row, column=3).border = thin_border
+
+                cell_nota = ws_detalhe.cell(row=row, column=4, value=nota)
+                cell_nota.font = normal_font
+                cell_nota.alignment = Alignment(horizontal='center')
+                cell_nota.border = thin_border
+                if nota:
+                    cell_nota.fill = green_fill if nota >= 4 else yellow_fill if nota >= 3 else red_fill
+
+                ws_detalhe.cell(row=row, column=5, value=mapa.get('Concordo totalmente', 0)).font = normal_font
+                ws_detalhe.cell(row=row, column=5).alignment = Alignment(horizontal='center')
+                ws_detalhe.cell(row=row, column=5).border = thin_border
+
+                ws_detalhe.cell(row=row, column=6, value=mapa.get('Concordo', 0)).font = normal_font
+                ws_detalhe.cell(row=row, column=6).alignment = Alignment(horizontal='center')
+                ws_detalhe.cell(row=row, column=6).border = thin_border
+
+                ws_detalhe.cell(row=row, column=7, value=mapa.get('Não concordo e nem discordo', 0)).font = normal_font
+                ws_detalhe.cell(row=row, column=7).alignment = Alignment(horizontal='center')
+                ws_detalhe.cell(row=row, column=7).border = thin_border
+
+                ws_detalhe.cell(row=row, column=8, value=mapa.get('Discordo', 0)).font = normal_font
+                ws_detalhe.cell(row=row, column=8).alignment = Alignment(horizontal='center')
+                ws_detalhe.cell(row=row, column=8).border = thin_border
+
+                ws_detalhe.cell(row=row, column=9, value=mapa.get('Discordo totalmente', 0)).font = normal_font
+                ws_detalhe.cell(row=row, column=9).alignment = Alignment(horizontal='center')
+                ws_detalhe.cell(row=row, column=9).border = thin_border
+
+                row += 1
+
+        # Aba 3: Respostas Abertas
+        perguntas_abertas = db.execute("""
+            SELECT p.codigo, p.texto, s.nome as secao_nome, r.valor
+            FROM respostas r JOIN perguntas p ON r.pergunta_id = p.id JOIN secoes s ON p.secao_id = s.id
+            WHERE r.ciclo_id = ? AND p.tipo IN ('texto', 'paragrafo') AND r.valor IS NOT NULL AND r.valor != ''
+            ORDER BY s.ordem, p.ordem
+        """, (ciclo['id'],)).fetchall()
+
+        if perguntas_abertas:
+            ws_abertas = wb.create_sheet('Respostas Abertas')
+            ws_abertas.column_dimensions['A'].width = 10
+            ws_abertas.column_dimensions['B'].width = 50
+            ws_abertas.column_dimensions['C'].width = 30
+            ws_abertas.column_dimensions['D'].width = 60
+
+            row = 1
+            headers3 = ['Código', 'Pergunta', 'Seção', 'Resposta']
+            for col, h in enumerate(headers3, 1):
+                cell = ws_abertas.cell(row=row, column=col, value=h)
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.alignment = Alignment(horizontal='center', wrap_text=True)
+                cell.border = thin_border
+
+            row = 2
+            for r in perguntas_abertas:
+                ws_abertas.cell(row=row, column=1, value=r['codigo']).font = normal_font
+                ws_abertas.cell(row=row, column=1).border = thin_border
+                ws_abertas.cell(row=row, column=2, value=r['texto']).font = normal_font
+                ws_abertas.cell(row=row, column=2).border = thin_border
+                ws_abertas.cell(row=row, column=3, value=r['secao_nome']).font = normal_font
+                ws_abertas.cell(row=row, column=3).border = thin_border
+                ws_abertas.cell(row=row, column=4, value=r['valor']).font = normal_font
+                ws_abertas.cell(row=row, column=4).border = thin_border
+                ws_abertas.cell(row=row, column=4).alignment = Alignment(wrap_text=True)
+                row += 1
+
+        # Salvar
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        filename = f'Resultados_Clima_{ciclo["ano"]}.xlsx'
+        return send_file(output, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                         as_attachment=True, download_name=filename)

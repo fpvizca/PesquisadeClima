@@ -10,104 +10,173 @@
         onerror="this.onerror=null;this.href='{{ url_for('static', filename='css/bootstrap-icons.css') }}'">
   <style>
     :root {
-      --primary: #1a56db;
-      --primary-dark: #1648b8;
-      --primary-light: #e8effc;
-      --bg: #f1f5f9;
-      --sidebar-bg: #0f172a;
-      --sidebar-hover: #1e293b;
-      --card-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      --primary: #4f46e5;
+      --primary-dark: #4338ca;
+      --primary-light: #e0e7ff;
+      --bg: #f8fafc;
+      --sidebar-bg: #1e293b;
+      --sidebar-hover: #334155;
+      --card-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
     }
-    body { background: var(--bg); font-family: 'Segoe UI', system-ui, sans-serif; }
+    body { background: var(--bg); font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
     .sidebar {
       position: fixed; top: 0; left: 0; bottom: 0; width: 260px;
       background: var(--sidebar-bg); color: #fff; overflow-y: auto; z-index: 1000;
     }
-    .sidebar .brand { padding: 1.5rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.1); }
-    .sidebar .brand h5 { margin: 0; font-weight: 600; font-size: 1rem; }
-    .sidebar .nav-link {
-      color: rgba(255,255,255,0.7); padding: 0.75rem 1rem;
-      display: flex; align-items: center; gap: 0.75rem; font-size: 0.9rem;
+    .sidebar .brand {
+      padding: 1.25rem 1.5rem; font-size: 1.1rem; font-weight: 700;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      display: flex; flex-direction: column; align-items: center; text-align: center;
     }
-    .sidebar .nav-link:hover, .sidebar .nav-link.active { color: #fff; background: var(--sidebar-hover); }
-    .sidebar .nav-link i { font-size: 1.1rem; width: 24px; text-align: center; }
-    .main-content { margin-left: 260px; min-height: 100vh; }
+    .sidebar .brand i { color: #818cf8; margin-right: 0.5rem; }
+    .sidebar .brand-logo { display: block; margin-top: 8px; max-height: 32px; }
+    .sidebar .nav-item { padding: 0.65rem 1.5rem; color: #cbd5e1; display: flex; align-items: center; gap: 0.75rem; text-decoration: none; transition: all 0.15s; font-size: 0.9rem; }
+    .sidebar .nav-item:hover, .sidebar .nav-item.active { background: var(--sidebar-hover); color: #fff; }
+    .sidebar .nav-item i { width: 20px; text-align: center; font-size: 1.1rem; }
+    .sidebar .nav-section { padding: 0.5rem 1.5rem 0.25rem; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; }
+    .main-content { margin-left: 260px; padding: 1.5rem 2rem; min-height: 100vh; }
     .topbar {
-      background: #fff; padding: 1rem 1.5rem;
-      border-bottom: 1px solid #e2e8f0;
-      display: flex; justify-content: space-between; align-items: center;
+      display: flex; align-items: center; justify-content: space-between;
+      padding-bottom: 1.5rem; border-bottom: 1px solid #e2e8f0; margin-bottom: 1.5rem;
     }
-    .content { padding: 1.5rem; max-width: 900px; margin: 0 auto; }
-    .card { border: none; box-shadow: var(--card-shadow); }
-    .card-header { background: #fff; border-bottom: 1px solid #e2e8f0; font-weight: 600; }
+    .topbar h4 { margin: 0; font-weight: 600; color: #1e293b; }
+    .topbar .user-info { display: flex; align-items: center; gap: 0.75rem; }
+    .topbar .avatar {
+      width: 36px; height: 36px; border-radius: 50%; background: var(--primary);
+      color: #fff; display: flex; align-items: center; justify-content: center;
+      font-weight: 600; font-size: 0.85rem;
+    }
+    .card { border: none; border-radius: 12px; box-shadow: var(--card-shadow); }
+    .card-header { background: transparent; border-bottom: 1px solid #e2e8f0; font-weight: 600; padding: 1rem 1.25rem; }
+    .stat-card {
+      border-radius: 12px; padding: 1.5rem; border: none;
+      box-shadow: var(--card-shadow); transition: transform 0.15s;
+    }
+    .stat-card:hover { transform: translateY(-2px); }
+    .stat-card .icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; margin-bottom: 1rem; }
+    .stat-card .number { font-size: 1.75rem; font-weight: 700; }
+    .stat-card .label { color: #64748b; font-size: 0.85rem; }
     .btn-primary { background: var(--primary); border-color: var(--primary); }
     .btn-primary:hover { background: var(--primary-dark); border-color: var(--primary-dark); }
+    .btn-outline-primary { color: var(--primary); border-color: var(--primary); }
+    .btn-outline-primary:hover { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .table th { font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em; color: #64748b; border-top: none; }
+    .progress-bar-dim { height: 8px; border-radius: 4px; }
+    .badge-status { padding: 0.35em 0.65em; font-weight: 500; }
+    .alert { border-radius: 10px; border: none; }
+    .login-page {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .login-card {
+      background: #fff; border-radius: 16px; padding: 2.5rem;
+      width: 100%; max-width: 420px; box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+    }
+    .login-card .brand-title { font-size: 1.5rem; font-weight: 700; color: #1e293b; text-align: center; margin-bottom: 0.5rem; }
+    .login-card .brand-sub { color: #64748b; text-align: center; margin-bottom: 2rem; font-size: 0.9rem; }
+    .login-logo {
+      display: block; max-height: 60px; margin: 0.75rem auto 1.25rem;
+    }
+    .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 0.2rem rgba(79,70,229,0.15); }
     @media (max-width: 768px) {
       .sidebar { display: none; }
-      .main-content { margin-left: 0; }
+      .main-content { margin-left: 0; padding: 1rem; }
     }
   </style>
   {% block head %}{% endblock %}
 </head>
 <body>
-  <div class="sidebar">
-    <div class="brand">
-      <h5><i class="bi bi-clipboard-data"></i> Clima Vizca</h5>
-    </div>
-    <nav class="nav flex-column mt-3">
-      <a class="nav-link {% if request.endpoint == 'pesquisa' %}active{% endif %}" href="{{ url_for('pesquisa') }}">
-        <i class="bi bi-pencil-square"></i> Responder Pesquisa
-      </a>
-      <a class="nav-link {% if request.endpoint == 'minhas_respostas' %}active{% endif %}" href="{{ url_for('minhas_respostas') }}">
-        <i class="bi bi-eye"></i> Minhas Respostas
-      </a>
-      {% if is_admin %}
-      <a class="nav-link {% if request.endpoint == 'admin_formulario' %}active{% endif %}" href="{{ url_for('admin_formulario') }}">
-        <i class="bi bi-gear"></i> Gerenciar Formulário
-      </a>
-      <a class="nav-link {% if request.endpoint == 'admin_resultados' %}active{% endif %}" href="{{ url_for('admin_resultados') }}">
-        <i class="bi bi-bar-chart"></i> Resultados Gerais
-      </a>
-      <a class="nav-link {% if request.endpoint == 'admin_analise' %}active{% endif %}" href="{{ url_for('admin_analise') }}">
-        <i class="bi bi-graph-up"></i> Análise de Resultados
-      </a>
+
+{% if user %}
+<div class="sidebar">
+  <div class="brand">
+    <i class="bi bi-clipboard-data"></i> Clima Vizca
+  </div>
+  <div class="nav-section">Navegação</div>
+  <a href="{{ url_for('dashboard') }}" class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
+    <i class="bi bi-speedometer2"></i> Dashboard
+  </a>
+  <a href="{{ url_for('pesquisa') }}" class="nav-item {% if request.endpoint in ('pesquisa', 'pesquisa_secao') %}active{% endif %}">
+    <i class="bi bi-pencil-square"></i> Responder Pesquisa
+  </a>
+  <a href="{{ url_for('minhas_respostas') }}" class="nav-item {% if request.endpoint == 'minhas_respostas' %}active{% endif %}">
+    <i class="bi bi-eye"></i> Minhas Respostas
+  </a>
+  {% if is_admin %}
+  <div class="nav-section">Painel do Administrador</div>
+  <a href="{{ url_for('admin_formulario') }}" class="nav-item {% if request.endpoint in ('admin_formulario', 'admin_secao_form', 'admin_pergunta_form') %}active{% endif %}">
+    <i class="bi bi-gear"></i> Gerenciar Formulário
+  </a>
+  <a href="{{ url_for('admin_resultados') }}" class="nav-item {% if request.endpoint == 'admin_resultados' %}active{% endif %}">
+    <i class="bi bi-bar-chart"></i> Resultados Gerais
+  </a>
+  <a href="{{ url_for('admin_analise') }}" class="nav-item {% if request.endpoint == 'admin_analise' %}active{% endif %}">
+    <i class="bi bi-graph-up"></i> Análise de Resultados
+  </a>
+  {% endif %}
+  <div style="flex:1"></div>
+  <div style="border-top:1px solid rgba(255,255,255,0.1); padding:1rem 1.5rem;">
+    <a href="{{ url_for('logout') }}" class="nav-item" style="padding:0.5rem 0;">
+      <i class="bi bi-box-arrow-left"></i> Sair
+    </a>
+  </div>
+</div>
+
+<div class="main-content">
+  <div class="topbar">
+    <h4>
+      {% if request.endpoint == 'dashboard' %}Dashboard
+      {% elif request.endpoint in ('pesquisa', 'pesquisa_secao') %}Pesquisa de Clima
+      {% elif request.endpoint == 'minhas_respostas' %}Minhas Respostas
+      {% elif request.endpoint in ('admin_formulario', 'admin_secao_form', 'admin_pergunta_form') %}Gerenciar Formulário
+      {% elif request.endpoint == 'admin_resultados' %}Resultados Gerais
+      {% elif request.endpoint == 'admin_analise' %}Análise de Resultados
+      {% else %}Pesquisa de Clima Vizca
       {% endif %}
-    </nav>
-  </div>
-
-  <div class="main-content">
-    <div class="topbar">
-      <div>
-        <h6 class="mb-0">{% block titulo %}Pesquisa de Clima Vizca{% endblock %}</h6>
-      </div>
-      <div class="d-flex align-items-center gap-3">
-        {% if 'usuario_id' in session %}
-        <span class="text-muted small">{{ session.get('usuario_nome', '') }}</span>
-        <a href="{{ url_for('logout') }}" class="btn btn-outline-secondary btn-sm">
-          <i class="bi bi-box-arrow-right"></i> Sair
-        </a>
-        {% endif %}
-      </div>
-    </div>
-
-    <div class="content">
-      {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-          {% for category, message in messages %}
-          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-          </div>
-          {% endfor %}
-        {% endif %}
-      {% endwith %}
-
-      {% block content %}{% endblock %}
+    </h4>
+    <div class="user-info">
+      <span style="color:#64748b; font-size:0.9rem;">{{ user.nome }}</span>
+      <div class="avatar">{{ user.nome[:2]|upper }}</div>
     </div>
   </div>
+{% endif %}
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
-          onerror="this.onerror=null;this.src='{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}'"></script>
-  {% block scripts %}{% endblock %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+      <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+{% block content %}{% endblock %}
+
+{% if user %}</div>{% endif %}
+
+<script>
+function bootstrapFallback() {
+  var s = document.createElement('script');
+  s.src = '{{ url_for("static", filename="js/bootstrap.bundle.min.js") }}';
+  document.head.appendChild(s);
+}
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
+        onerror="this.onerror=null;bootstrapFallback()"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.alert .btn-close').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      this.closest('.alert').remove();
+    });
+  });
+  setTimeout(function() {
+    document.querySelectorAll('.alert').forEach(function(a) { a.remove(); });
+  }, 5000);
+});
+</script>
+{% block scripts %}{% endblock %}
 </body>
 </html>

@@ -3,23 +3,24 @@
 -- ============================================
 
 CREATE TABLE IF NOT EXISTS usuarios (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    nome          TEXT NOT NULL,
-    email         TEXT UNIQUE NOT NULL,
-    login         TEXT UNIQUE NOT NULL,
-    senha_hash    TEXT NOT NULL,
-    ativo         INTEGER NOT NULL DEFAULT 1,
-    criado_em     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    atualizado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  id_externo    INTEGER UNIQUE,
+  login         TEXT,
+  nome          TEXT NOT NULL,
+  email         TEXT,
+  senha_hash    TEXT NOT NULL,
+  ativo         INTEGER NOT NULL DEFAULT 1,
+  criado_em     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS usuario_roles (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    usuario_id  INTEGER NOT NULL,
-    role        TEXT NOT NULL CHECK (role IN ('admin', 'colaborador')),
-    criado_em   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
-    UNIQUE(usuario_id, role)
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  usuario_id  INTEGER NOT NULL,
+  role        TEXT NOT NULL CHECK (role IN ('colaborador','gestor','diretoria','admin')),
+  criado_em   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (usuario_id, role),
+  FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS secoes (
@@ -58,19 +59,28 @@ CREATE TABLE IF NOT EXISTS ciclos (
 CREATE TABLE IF NOT EXISTS respostas (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     ciclo_id        INTEGER NOT NULL,
-    usuario_id      INTEGER NOT NULL,
     pergunta_id     INTEGER NOT NULL,
     valor           TEXT,
     comentario      TEXT,
     respondido_em   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (ciclo_id) REFERENCES ciclos(id) ON DELETE CASCADE,
-    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
     FOREIGN KEY (pergunta_id) REFERENCES perguntas(id) ON DELETE CASCADE,
-    UNIQUE(ciclo_id, usuario_id, pergunta_id)
+    UNIQUE(ciclo_id, pergunta_id)
+);
+
+CREATE TABLE IF NOT EXISTS respondentes (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    ciclo_id        INTEGER NOT NULL,
+    usuario_id      INTEGER NOT NULL,
+    respondido_em   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (ciclo_id) REFERENCES ciclos(id) ON DELETE CASCADE,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    UNIQUE(ciclo_id, usuario_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_usuario_roles_usuario ON usuario_roles(usuario_id);
 CREATE INDEX IF NOT EXISTS idx_perguntas_secao ON perguntas(secao_id);
 CREATE INDEX IF NOT EXISTS idx_respostas_ciclo ON respostas(ciclo_id);
-CREATE INDEX IF NOT EXISTS idx_respostas_usuario ON respostas(usuario_id);
 CREATE INDEX IF NOT EXISTS idx_respostas_pergunta ON respostas(pergunta_id);
+CREATE INDEX IF NOT EXISTS idx_respondentes_ciclo ON respondentes(ciclo_id);
+CREATE INDEX IF NOT EXISTS idx_respondentes_usuario ON respondentes(usuario_id);

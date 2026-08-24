@@ -52,8 +52,10 @@
       {% elif pergunta.tipo == 'multipla_escolha' %}
       <!-- Múltipla escolha -->
       <div class="d-flex flex-wrap gap-2">
-        {% set opcoes = pergunta.opcoes | tojson if pergunta.opcoes is string else pergunta.opcoes %}
-        {% for opcao in pergunta.opcoes.split(',') if pergunta.opcoes %}
+        {% set opcoes_lista = pergunta.opcoes.replace('[', '').replace(']', '').replace('"', '').split(',') if pergunta.opcoes else [] %}
+        {% for opcao in opcoes_lista %}
+        {% set opcao = opcao.strip() %}
+        {% if opcao %}
         <div class="form-check">
           <input class="form-check-input" type="radio"
                  name="pergunta_{{ pergunta.id }}" id="q{{ pergunta.id }}_{{ loop.index }}"
@@ -62,6 +64,7 @@
                  {% if pergunta.obrigatoria %}required{% endif %}>
           <label class="form-check-label" for="q{{ pergunta.id }}_{{ loop.index }}">{{ opcao }}</label>
         </div>
+        {% endif %}
         {% endfor %}
       </div>
 
