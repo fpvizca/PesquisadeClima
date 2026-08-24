@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Gerenciar Formulário - Pesquisa de Clima Vizca{% endblock %}
+{% block titulo %}Gerenciar Formulário{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    {% set total_p = [] %}{% for item in dados %}{% for p in item.perguntas %}{% if total_p.append(1) %}{% endif %}{% endfor %}{% endfor %}
+    <span class="text-muted">Seções: {{ dados|length }} | Perguntas: {{ total_p|length }}</span>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('admin_secao_nova') }}" class="btn btn-primary">
+      <i class="bi bi-plus-circle"></i> Nova Seção
+    </a>
+    <a href="{{ url_for('admin_pergunta_nova') }}" class="btn btn-outline-primary">
+      <i class="bi bi-plus"></i> Nova Pergunta
+    </a>
+  </div>
+</div>
+
+{% for item in dados %}
+<div class="card mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <div>
+      <span class="badge bg-primary me-2">{{ item.secao.ordem }}</span>
+      <strong>{{ item.secao.nome }}</strong>
+      <span class="badge bg-secondary ms-2">{{ item.perguntas|length }} perguntas</span>
+    </div>
+    <div class="d-flex gap-1">
+      <a href="{{ url_for('admin_secao_editar', secao_id=item.secao.id) }}" class="btn btn-sm btn-outline-secondary" title="Editar">
+        <i class="bi bi-pencil"></i>
+      </a>
+      <form method="POST" action="{{ url_for('admin_secao_duplicar', secao_id=item.secao.id) }}" class="d-inline">
+        <button type="submit" class="btn btn-sm btn-outline-secondary" title="Duplicar">
+          <i class="bi bi-copy"></i>
+        </button>
+      </form>
+      <form method="POST" action="{{ url_for('admin_secao_excluir', secao_id=item.secao.id) }}"
+            onsubmit="return confirm('Excluir esta seção e todas as perguntas?')" class="d-inline">
+        <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
+          <i class="bi bi-trash"></i>
+        </button>
+      </form>
+    </div>
+  </div>
+  {% if item.secao.descricao %}
+  <div class="card-body pt-0 pb-2">
+    <small class="text-muted">{{ item.secao.descricao }}</small>
+  </div>
+  {% endif %}
+  <div class="card-body p-0">
+    <table class="table table-sm mb-0">
+      <thead class="table-light">
+        <tr>
+          <th style="width:60px">Cód.</th>
+          <th>Pergunta</th>
+          <th style="width:100px">Tipo</th>
+          <th style="width:60px" class="text-center">Obrig.</th>
+          <th style="width:140px" class="text-center">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in item.perguntas %}
+        <tr>
+          <td><span class="badge bg-light text-dark">{{ p.codigo }}</span></td>
+          <td>{{ p.texto[:100] }}{% if p.texto|length > 100 %}...{% endif %}</td>
+          <td><small class="text-muted">{{ p.tipo }}</small></td>
+          <td class="text-center">
+            {% if p.obrigatoria %}
+            <i class="bi bi-check-circle-fill text-success"></i>
+            {% else %}
+            <i class="bi bi-dash-circle text-muted"></i>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            <div class="btn-group btn-group-sm">
+              <a href="{{ url_for('admin_pergunta_editar', pergunta_id=p.id) }}" class="btn btn-outline-secondary" title="Editar">
+                <i class="bi bi-pencil"></i>
+              </a>
+              <form method="POST" action="{{ url_for('admin_pergunta_duplicar', pergunta_id=p.id) }}" class="d-inline">
+                <button type="submit" class="btn btn-outline-secondary" title="Duplicar">
+                  <i class="bi bi-copy"></i>
+                </button>
+              </form>
+              <form method="POST" action="{{ url_for('admin_pergunta_excluir', pergunta_id=p.id) }}"
+                    onsubmit="return confirm('Excluir esta pergunta?')" class="d-inline">
+                <button type="submit" class="btn btn-outline-danger" title="Excluir">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer">
+    <a href="{{ url_for('admin_pergunta_nova', secao_id=item.secao.id) }}" class="text-decoration-none small">
+      <i class="bi bi-plus"></i> Adicionar pergunta nesta seção
+    </a>
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

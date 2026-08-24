@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}{% if pergunta %}Editar Pergunta{% else %}Nova Pergunta{% endif %} - Pesquisa de Clima Vizca{% endblock %}
+{% block titulo %}{% if pergunta %}Editar Pergunta: {{ pergunta.codigo }}{% else %}Nova Pergunta{% endif %}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-8">
+    <div class="card">
+      <div class="card-body">
+        <form method="POST">
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label for="secao_id" class="form-label">Seção <span class="text-danger">*</span></label>
+              <select class="form-select" id="secao_id" name="secao_id" required>
+                <option value="">Selecione...</option>
+                {% for s in secoes %}
+                <option value="{{ s.id }}" {% if secao_id == s.id %}selected{% endif %}>{{ s.nome }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label for="codigo" class="form-label">Código</label>
+              <input type="text" class="form-control" id="codigo" name="codigo"
+                     value="{{ pergunta.codigo if pergunta else '' }}" placeholder="Ex: Q1">
+            </div>
+            <div class="col-md-3">
+              <label for="ordem" class="form-label">Ordem</label>
+              <input type="number" class="form-control" id="ordem" name="ordem"
+                     value="{{ pergunta.ordem if pergunta else max_ordem + 1 }}" min="0">
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label for="texto" class="form-label">Texto da Pergunta <span class="text-danger">*</span></label>
+            <textarea class="form-control" id="texto" name="texto" rows="3" required>{{ pergunta.texto if pergunta else '' }}</textarea>
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label for="tipo" class="form-label">Tipo de Resposta</label>
+              <select class="form-select" id="tipo" name="tipo" onchange="toggleOpcoes()">
+                <option value="escala" {% if pergunta and pergunta.tipo == 'escala' %}selected{% endif %}>Escala (Concordo/Discordo)</option>
+                <option value="multipla_escolha" {% if pergunta and pergunta.tipo == 'multipla_escolha' %}selected{% endif %}>Múltipla Escolha</option>
+                <option value="texto" {% if pergunta and pergunta.tipo == 'texto' %}selected{% endif %}>Texto Curto</option>
+                <option value="paragrafo" {% if pergunta and pergunta.tipo == 'paragrafo' %}selected{% endif %}>Texto Longo (Parágrafo)</option>
+                <option value="grid" {% if pergunta and pergunta.tipo == 'grid' %}selected{% endif %}>Grid (Tabela)</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">&nbsp;</label>
+              <div class="form-check mt-2">
+                <input class="form-check-input" type="checkbox" id="obrigatoria" name="obrigatoria" value="1"
+                       {% if not pergunta or pergunta.obrigatoria %}checked{% endif %}>
+                <label class="form-check-label" for="obrigatoria">Obrigatória</label>
+              </div>
+            </div>
+          </div>
+
+          <div id="opcoesSection">
+            <div class="mb-3" id="opcoesMultipla">
+              <label for="opcoes" class="form-label">Opções de Resposta</label>
+              <textarea class="form-control" id="opcoes" name="opcoes" rows="4"
+                        placeholder="Uma opção por linha">{{ pergunta.opcoes if pergunta and pergunta.opcoes else '' }}</textarea>
+              <small class="text-muted">Separadas por vírgula ou uma por linha.</small>
+            </div>
+          </div>
+
+          <div id="gridSection" style="display: none;">
+            <div class="mb-3">
+              <label for="grid_rows" class="form-label">Linhas do Grid</label>
+              <textarea class="form-control" id="grid_rows" name="grid_rows" rows="4"
+                        placeholder="Uma linha por linha">{{ pergunta.grid_rows if pergunta and pergunta.grid_rows else '' }}</textarea>
+              <small class="text-muted">Ex: Gênero, Idade, Cor ou raça (uma por linha)</small>
+            </div>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-check-lg"></i> {% if pergunta %}Salvar Alterações{% else %}Criar Pergunta{% endif %}
+            </button>
+            <a href="{{ url_for('admin_formulario') }}" class="btn btn-outline-secondary">Cancelar</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% block scripts %}
+<script>
+function toggleOpcoes() {
+  const tipo = document.getElementById('tipo').value;
+  const opcoesSection = document.getElementById('opcoesSection');
+  const gridSection = document.getElementById('gridSection');
+  const opcoesMultipla = document.getElementById('opcoesMultipla');
+
+  opcoesSection.style.display = 'none';
+  gridSection.style.display = 'none';
+
+  if (tipo === 'multipla_escolha') {
+    opcoesSection.style.display = 'block';
+    opcoesMultipla.style.display = 'block';
+  } else if (tipo === 'grid') {
+    gridSection.style.display = 'block';
+  }
+}
+toggleOpcoes();
+</script>
+{% endblock %}
+{% endblock %}

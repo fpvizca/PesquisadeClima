@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+{% block title %}Análise de Resultados - Pesquisa de Clima Vizca{% endblock %}
+{% block titulo %}Análise de Resultados{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <span class="badge bg-primary me-2">{{ ciclo.nome }}</span>
+    <span class="badge bg-success">{{ total_respondentes }} respondentes</span>
+  </div>
+</div>
+
+<!-- Resumo Geral -->
+{% set medias_gerais = [] %}
+{% for d in dados_secoes %}
+  {% if d.media %}{% if medias_gerais.append(d.media) %}{% endif %}{% endif %}
+{% endfor %}
+{% set media_geral = (medias_gerais | sum / medias_gerais | length) if medias_gerais else 0 %}
+
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card text-center">
+      <div class="card-body">
+        <h3 class="text-primary">{{ "%.2f"|format(media_geral) }}</h3>
+        <small class="text-muted">Média Geral</small>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-center">
+      <div class="card-body">
+        <h3 class="text-success">{{ total_respondentes }}</h3>
+        <small class="text-muted">Respondentes</small>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-center">
+      <div class="card-body">
+        <h3 class="text-info">{{ dados_secoes|length }}</h3>
+        <small class="text-muted">Seções</small>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-center">
+      <div class="card-body">
+        <h3 class="text-warning">{{ perguntas_abertas|length }}</h3>
+        <small class="text-muted">Respostas Abertas</small>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Gráfico Comparativo de Médias -->
+<div class="card mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-bar-chart"></i> Comparativo de Médias por Seção</span>
+    <button class="btn btn-sm btn-outline-primary" onclick="gerarAnaliseGeral()">
+      <i class="bi bi-robot"></i> Gerar Análise IA
+    </button>
+  </div>
+  <div class="card-body">
+    <canvas id="chartMedias" height="100"></canvas>
+  </div>
+</div>
+<div id="analiseGeral" class="mb-4" style="display:none;">
+  <div class="card">
+    <div class="card-header bg-primary text-white"><i class="bi bi-robot"></i> Análise Geral - IA</div>
+    <div class="card-body" id="analiseGeralTexto"></div>
+  </div>
+</div>
+
+<!-- Detalhamento por Seção -->
+{% for d in dados_secoes %}
+<div class="card mb-4 secao-card" id="secao-{{ d.secao.id }}">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <div>
+      <strong>{{ d.secao.nome }}</strong>
+      {% if d.media %}
+      <span class="badge {% if d.media >= 4 %}bg-success{% elif d.media >= 3 %}bg-warning{% else %}bg-danger{% endif %} ms-2">
+        Média: {{ d.media }}
+      </span>
+      {% endif %}
+      <span class="badge bg-secondary ms-1">{{ d.total_respostas }} respostas</span>
+    </div>
+    <button class="btn btn-sm btn-outline-primary" onclick="gerarAnaliseSecao({{ d.secao.id }}, '{{ d.secao.nome }}')">
+      <i class="bi bi-robot"></i> Análise IA
+    </button>
+  </div>
+  <div class="card-body">
+    <div class="row">
+      <div class="col-md-5">
+        <canvas id="chartSecao{{ d.secao.id }}" height="150"></canvas>
+      </div>
+      <div class="col-md-7">
+        <table class="table table-sm">
+          <thead>
+            <tr>
+              <th>Pergunta</th>
+              <th class="text-center">Nota</th>
+              <th class="text-center">% Satisfatório</th>
+              <th>Distribuição</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in d.perguntas %}
+            <tr>
+              <td><small>{{ p.codigo }} - {{ p.texto[:60] }}{% if p.texto|length > 60 %}...{% endif %}</small></td>
+              <td class="text-center">
+                {% if p.nota %}
+                <span class="fw-bold {% if p.nota >= 4 %}text-success{% elif p.nota >= 3 %}text-warning{% else %}text-danger{% endif %}">
+                  {{ p.nota }}
+                </span>
+                {% else %}-{% endif %}
+              </td>
+              <td class="text-center">
+                <span class="{% if p.pct_satisfatorio >= 70 %}text-success{% elif p.pct_satisfatorio >= 50 %}text-warning{% else %}text-danger{% endif %}">
+                  {{ p.pct_satisfatorio }}%
+                </span>
+              </td>
+              <td style="width: 40%;">
+                <div class="progress" style="height: 18px; font-size: 10px;">
+                  {% set total_p = p.distribuicao.values()|sum %}
+                  {% if total_p > 0 %}
+                  <div class="progress-bar bg-success" style="width:{{ ((p.distribuicao['Concordo totalmente'] + p.distribuicao['Concordo']) / total_p * 100)|int }}%"
+                       title="Satisfatório">{{ ((p.distribuicao['Concordo totalmente'] + p.distribuicao['Concordo']) / total_p * 100)|int }}%</div>
+                  <div class="progress-bar bg-secondary" style="width:{{ (p.distribuicao['Não concordo e nem discordo'] / total_p * 100)|int }}%"
+                       title="Neutro"></div>
+                  <div class="progress-bar bg-danger" style="width:{{ ((p.distribuicao['Discordo'] + p.distribuicao['Discordo totalmente']) / total_p * 100)|int }}%"
+                       title="Insatisfatório"></div>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div id="analiseSecao{{ d.secao.id }}" class="px-3 pb-3" style="display:none;">
+    <div class="card bg-light">
+      <div class="card-body" id="analiseSecaoTexto{{ d.secao.id }}"></div>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+<!-- Respostas Abertas -->
+{% if perguntas_abertas %}
+<div class="card mb-4">
+  <div class="card-header"><i class="bi bi-chat-left-text"></i> Respostas Abertas</div>
+  <div class="card-body">
+    {% set secao_atual_ns = namespace(val='') %}
+    {% for r in perguntas_abertas %}
+      {% if r.secao_nome != secao_atual_ns.val %}
+        {% set secao_atual_ns.val = r.secao_nome %}
+        <h6 class="text-primary mt-3 mb-2">{{ r.secao_nome }}</h6>
+      {% endif %}
+      <div class="mb-2 p-2 bg-light rounded">
+        <small class="text-muted">{{ r.codigo }}:</small>
+        <small>{{ r.valor }}</small>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const dadosSecoes = {{ dados_secoes | tojson }};
+
+// Gráfico de Médias
+const ctxMedias = document.getElementById('chartMedias').getContext('2d');
+new Chart(ctxMedias, {
+  type: 'bar',
+  data: {
+    labels: dadosSecoes.map(d => d.secao.nome),
+    datasets: [{
+      label: 'Média',
+      data: dadosSecoes.map(d => d.media),
+      backgroundColor: dadosSecoes.map(d =>
+        d.media >= 4 ? 'rgba(34,197,94,0.7)' :
+        d.media >= 3 ? 'rgba(234,179,8,0.7)' : 'rgba(239,68,68,0.7)'
+      ),
+      borderColor: dadosSecoes.map(d =>
+        d.media >= 4 ? 'rgb(34,197,94)' :
+        d.media >= 3 ? 'rgb(234,179,8)' : 'rgb(239,68,68)'
+      ),
+      borderWidth: 1
+    }]
+  },
+  options: {
+    responsive: true,
+    scales: {
+      y: { beginAtZero: true, max: 5, ticks: { stepSize: 1 } }
+    },
+    plugins: {
+      legend: { display: true, labels: { font: { size: 13, weight: 'bold', family: 'Arial' }, usePointStyle: true } }
+    }
+  }
+});
+
+// Gráficos por Seção
+dadosSecoes.forEach(d => {
+  if (d.distribuicao) {
+    const ctx = document.getElementById('chartSecao' + d.secao.id);
+    if (ctx) {
+      new Chart(ctx.getContext('2d'), {
+        type: 'doughnut',
+        data: {
+          labels: ['Concordo Totalmente', 'Concordo', 'Neutro', 'Discordo', 'Discordo Totalmente'],
+          datasets: [{
+            data: [
+              d.distribuicao['Concordo totalmente'] || 0,
+              d.distribuicao['Concordo'] || 0,
+              d.distribuicao['Não concordo e nem discordo'] || 0,
+              d.distribuicao['Discordo'] || 0,
+              d.distribuicao['Discordo totalmente'] || 0
+            ],
+            backgroundColor: ['#16a34a','#22c55e','#a3a3a3','#f97316','#ef4444']
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                font: { size: 12, weight: 'bold', family: 'Arial' },
+                padding: 12,
+                usePointStyle: true,
+                pointStyle: 'rectRounded'
+              }
+            }
+          }
+        }
+      });
+    }
+  }
+});
+
+async function gerarAnaliseGeral() {
+  const geral = dadosSecoes.reduce((acc, d) => {
+    acc.total += d.total_respostas;
+    Object.keys(d.distribuicao).forEach(k => acc.distribuicao[k] = (acc.distribuicao[k]||0) + d.distribuicao[k]);
+    return acc;
+  }, {total: 0, distribuicao: {}});
+
+  geral.media = (dadosSecoes.reduce((s,d) => s + (d.media||0), 0) / dadosSecoes.filter(d=>d.media).length).toFixed(2);
+  geral.pct_satisfatorio = ((geral.distribuicao['Concordo totalmente']||0) + (geral.distribuicao['Concordo']||0)) / geral.total * 100;
+
+  const menores = dadosSecoes.filter(d=>d.media).sort((a,b)=>a.media-b.media).slice(0,3).map(d=>({secao:d.secao.nome,media:d.media}));
+  const maiores = dadosSecoes.filter(d=>d.media).sort((a,b)=>b.media-a.media).slice(0,3).map(d=>({secao:d.secao.nome,media:d.media}));
+
+  const res = await fetch('/api/analise-ia', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({secao: 'Geral', dados: {...geral, menores_notas: menores, maiores_notas: maiores}})
+  });
+  const data = await res.json();
+  document.getElementById('analiseGeralTexto').innerHTML = marked.parse(data.response);
+  document.getElementById('analiseGeral').style.display = 'block';
+}
+
+async function gerarAnaliseSecao(secaoId, nome) {
+  const d = dadosSecoes.find(s => s.secao.id === secaoId);
+  if (!d) return;
+
+  const menores = d.perguntas.filter(p=>p.nota).sort((a,b)=>a.nota-b.nota).slice(0,3).map(p=>({pergunta:p.texto,nota:p.nota}));
+  const maiores = d.perguntas.filter(p=>p.nota).sort((a,b)=>b.nota-a.nota).slice(0,3).map(p=>({pergunta:p.texto,nota:p.nota}));
+
+  const res = await fetch('/api/analise-ia', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({secao: nome, dados: {media: d.media, total: d.total_respostas, pct_satisfatorio: d.pct_satisfatorio, distribuicao: d.distribuicao, menores_notas: menores, maiores_notas: maiores}})
+  });
+  const data = await res.json();
+  document.getElementById('analiseSecaoTexto' + secaoId).innerHTML = marked.parse(data.response);
+  document.getElementById('analiseSecao' + secaoId).style.display = 'block';
+}
+</script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+{% endblock %}

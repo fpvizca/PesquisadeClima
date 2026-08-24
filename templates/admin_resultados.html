@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Resultados Gerais - Pesquisa de Clima Vizca{% endblock %}
+{% block titulo %}Resultados Gerais{% endblock %}
+
+{% block content %}
+<div class="alert alert-info d-flex justify-content-between align-items-center">
+  <span><i class="bi bi-bar-chart"></i> <strong>{{ ciclo.nome }}</strong></span>
+  <span class="badge bg-primary">{{ total_respondentes }} respondentes</span>
+</div>
+
+{% for item in dados %}
+<div class="card mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><span class="badge bg-primary me-2">{{ loop.index }}</span> {{ item.secao.nome }}</span>
+  </div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-sm table-hover">
+        <thead>
+          <tr>
+            <th style="width: 50%">Pergunta</th>
+            <th class="text-center" style="width: 15%">Respostas</th>
+            <th class="text-center" style="width: 15%">Média</th>
+            <th class="text-center" style="width: 20%">Indicador</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in item.perguntas %}
+          <tr>
+            <td>{{ p.pergunta.texto }}</td>
+            <td class="text-center">{{ p.total }}</td>
+            {% if p.pergunta.tipo == 'escala' and p.media is not none %}
+            <td class="text-center">
+              <span class="fw-bold {% if p.media >= 4 %}text-success{% elif p.media >= 3 %}text-warning{% else %}text-danger{% endif %}">
+                {{ p.media }}
+              </span>
+            </td>
+            <td class="text-center">
+              <div class="progress" style="height: 20px;">
+                <div class="progress-bar {% if p.media >= 4 %}bg-success{% elif p.media >= 3 %}bg-warning{% else %}bg-danger{% endif %}"
+                     role="progressbar" style="width: {{ (p.media / 5 * 100)|int }}%">
+                  {{ (p.media / 5 * 100)|int }}%
+                </div>
+              </div>
+            </td>
+            {% else %}
+            <td class="text-center">-</td>
+            <td class="text-center"><small class="text-muted">Respostas abertas</small></td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+<div class="text-center mb-5">
+  <a href="{{ url_for('pesquisa') }}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left"></i> Voltar
+  </a>
+</div>
+{% endblock %}

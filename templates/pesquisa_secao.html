@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}{{ secao.nome }} - Pesquisa de Clima Vizca{% endblock %}
+{% block titulo %}{{ secao.nome }}{% endblock %}
+
+{% block content %}
+<!-- Progresso -->
+<div class="mb-4">
+  <div class="d-flex justify-content-between align-items-center mb-1">
+    <small class="text-muted">Seção {{ secao_atual_index }} de {{ total_secoes }}</small>
+    <small class="text-muted">{{ secao.nome }}</small>
+  </div>
+  <div class="progress" style="height: 8px;">
+    <div class="progress-bar" role="progressbar"
+         style="width: {{ (secao_atual_index / total_secoes * 100)|int }}%"></div>
+  </div>
+</div>
+
+<!-- Descrição da seção -->
+{% if secao.descricao %}
+<div class="alert alert-light border mb-4">
+  <small>{{ secao.descricao }}</small>
+</div>
+{% endif %}
+
+<form method="POST">
+  {% for pergunta in perguntas %}
+  <div class="card mb-3">
+    <div class="card-body">
+      <p class="fw-bold mb-3">
+        <span class="badge bg-secondary me-1">{{ pergunta.codigo }}</span>
+        {{ pergunta.texto }}
+        {% if pergunta.obrigatoria %}
+        <span class="text-danger">*</span>
+        {% endif %}
+      </p>
+
+      {% if pergunta.tipo == 'escala' %}
+      <!-- Escala Likert 5 pontos -->
+      <div class="d-flex flex-wrap gap-2">
+        {% for opcao in ['Concordo totalmente', 'Concordo', 'Não concordo e nem discordo', 'Discordo', 'Discordo totalmente'] %}
+        <div class="form-check">
+          <input class="form-check-input" type="radio"
+                 name="pergunta_{{ pergunta.id }}" id="q{{ pergunta.id }}_{{ loop.index }}"
+                 value="{{ opcao }}"
+                 {% if respostas_existentes.get(pergunta.id, {}).get('valor') == opcao %}checked{% endif %}
+                 {% if pergunta.obrigatoria %}required{% endif %}>
+          <label class="form-check-label" for="q{{ pergunta.id }}_{{ loop.index }}">{{ opcao }}</label>
+        </div>
+        {% endfor %}
+      </div>
+
+      {% elif pergunta.tipo == 'multipla_escolha' %}
+      <!-- Múltipla escolha -->
+      <div class="d-flex flex-wrap gap-2">
+        {% set opcoes = pergunta.opcoes | tojson if pergunta.opcoes is string else pergunta.opcoes %}
+        {% for opcao in pergunta.opcoes.split(',') if pergunta.opcoes %}
+        <div class="form-check">
+          <input class="form-check-input" type="radio"
+                 name="pergunta_{{ pergunta.id }}" id="q{{ pergunta.id }}_{{ loop.index }}"
+                 value="{{ opcao }}"
+                 {% if respostas_existentes.get(pergunta.id, {}).get('valor') == opcao %}checked{% endif %}
+                 {% if pergunta.obrigatoria %}required{% endif %}>
+          <label class="form-check-label" for="q{{ pergunta.id }}_{{ loop.index }}">{{ opcao }}</label>
+        </div>
+        {% endfor %}
+      </div>
+
+      {% elif pergunta.tipo == 'texto' %}
+      <!-- Campo de texto curto -->
+      <input type="text" class="form-control"
+             name="pergunta_{{ pergunta.id }}"
+             value="{{ respostas_existentes.get(pergunta.id, {}).get('valor', '') }}"
+             placeholder="Sua resposta"
+             {% if pergunta.obrigatoria %}required{% endif %}>
+
+      {% elif pergunta.tipo == 'paragrafo' %}
+      <!-- Campo de texto longo -->
+      <textarea class="form-control" rows="3"
+                name="pergunta_{{ pergunta.id }}"
+                {% if pergunta.obrigatoria %}required{% endif %}>{{ respostas_existentes.get(pergunta.id, {}).get('valor', '') }}</textarea>
+
+      {% elif pergunta.tipo == 'grid' %}
+      <!-- Grid (tabela de escala) -->
+      <div class="table-responsive">
+        <table class="table table-bordered table-sm">
+          <thead>
+            <tr>
+              <th></th>
+              {% for opt in ['Concordo totalmente', 'Concordo', 'Não concordo e nem discordo', 'Discordo', 'Discordo totalmente'] %}
+              <th class="text-center" style="font-size: 0.75rem;">{{ opt }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in ['Gênero', 'Idade', 'Cor ou raça', 'Religião', 'Orientação sexual', 'Condição física'] %}
+            <tr>
+              <td class="fw-bold">{{ row }}</td>
+              {% for opt in ['Concordo totalmente', 'Concordo', 'Não concordo e nem discordo', 'Discordo', 'Discordo totalmente'] %}
+              <td class="text-center">
+                <input class="form-check-input" type="radio"
+                       name="grid_{{ pergunta.id }}_{{ loop.parent.loop.index }}"
+                       value="{{ opt }}"
+                       {% if pergunta.obrigatoria %}required{% endif %}>
+              </td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+
+      {% if pergunta.tipo in ['texto', 'paragrafo'] %}
+      <!-- Comentário opcional para campos de texto já é o próprio campo -->
+      {% else %}
+      <!-- Comentário opcional para perguntas de escala/escolha -->
+      <div class="mt-2">
+        <input type="text" class="form-control form-control-sm"
+               name="comentario_{{ pergunta.id }}"
+               value="{{ respostas_existentes.get(pergunta.id, {}).get('comentario', '') }}"
+               placeholder="Comentário opcional...">
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+
+  <!-- Navegação -->
+  <div class="d-flex justify-content-between mt-4 mb-5">
+    {% if secao_atual_index > 1 %}
+    <a href="{{ url_for('pesquisa_secao', secao_id=secoes[secao_atual_index - 2].id) }}" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left"></i> Anterior
+    </a>
+    {% else %}
+    <a href="{{ url_for('pesquisa') }}" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left"></i> Início
+    </a>
+    {% endif %}
+
+    <button type="submit" class="btn btn-primary">
+      {% if proxima_secao %}
+        Próxima Seção <i class="bi bi-arrow-right"></i>
+      {% else %}
+        <i class="bi bi-check-circle"></i> Finalizar Pesquisa
+      {% endif %}
+    </button>
+  </div>
+</form>
+{% endblock %}
