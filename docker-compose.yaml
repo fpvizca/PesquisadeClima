@@ -1,0 +1,11 @@
+services:
+  clima:
+    container_name: clima
+    build: .
+    ports:
+      - "8120:8120"
+    environment:
+      - SECRET_KEY=vizca-prod-secret-key
+    volumes:
+      - .:/app
+    restart: unless-stopped
