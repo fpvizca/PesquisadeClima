@@ -2,7 +2,8 @@
 {% block content %}
 <div class="login-page">
   <div class="login-card">
-    <div class="brand-title">Pesquisa de Clima Vizca</div>
+    <img src="{{ url_for('static', filename='img/logo-cinza.png') }}" alt="Vizca" class="login-logo">
+    <div class="brand-title">Pesquisa de Clima</div>
     <div class="brand-sub">Acesse sua conta para continuar</div>
     <form method="POST" action="{{ url_for('login') }}">
       <div class="mb-3">

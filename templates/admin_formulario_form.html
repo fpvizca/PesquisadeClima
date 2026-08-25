@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Editar' if formulario else 'Novo' }} Formulário - Pesquisa de Clima Vizca{% endblock %}
+{% block titulo %}{{ 'Editar' if formulario else 'Novo' }} Formulário{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-8">
+    <div class="card">
+      <div class="card-header">
+        <h5 class="mb-0">{{ 'Editar Formulário' if formulario else 'Novo Formulário' }}</h5>
+      </div>
+      <div class="card-body">
+        <form method="POST">
+          <div class="mb-3">
+            <label for="nome" class="form-label">Nome do Formulário *</label>
+            <input type="text" class="form-control" id="nome" name="nome"
+                   value="{{ formulario.nome if formulario else '' }}" required
+                   placeholder="Ex: Pesquisa de Clima Vizca 2025">
+          </div>
+
+          <div class="mb-3">
+            <label for="descricao" class="form-label">Descrição</label>
+            <textarea class="form-control" id="descricao" name="descricao" rows="3"
+                      placeholder="Descrição opcional do formulário">{{ formulario.descricao if formulario else '' }}</textarea>
+          </div>
+
+          {% if formulario %}
+          <div class="mb-4">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="ativo" name="ativo"
+                     {% if formulario.ativo %}checked{% endif %}>
+              <label class="form-check-label" for="ativo">
+                <strong>Formulário Ativo</strong>
+              </label>
+            </div>
+          </div>
+          {% endif %}
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-check-circle"></i> {{ 'Salvar Alterações' if formulario else 'Criar Formulário' }}
+            </button>
+            <a href="{{ url_for('admin_formularios') }}" class="btn btn-outline-secondary">
+              <i class="bi bi-arrow-left"></i> Voltar
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

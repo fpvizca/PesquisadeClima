@@ -22,10 +22,11 @@ def erro_interno(e):
 
 @app.context_processor
 def inject_globals():
-    result = dict(now=datetime.now(), today=datetime.now().strftime('%Y%m%d'), has_role=has_role, is_admin=False, is_gestor=False, is_diretoria=False)
+    result = dict(now=datetime.now(), today=datetime.now().strftime('%Y%m%d'), has_role=has_role, is_admin=False, is_gestor=False, is_diretoria=False, user=None)
     if 'usuario_id' in session:
         db = get_db()
         user_id = session['usuario_id']
+        result['user'] = db.execute("SELECT * FROM usuarios WHERE id = ?", (user_id,)).fetchone()
         result['is_admin'] = has_role(user_id, 'admin')
         result['is_gestor'] = has_role(user_id, 'gestor')
         result['is_diretoria'] = has_role(user_id, 'diretoria')

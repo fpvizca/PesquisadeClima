@@ -4,9 +4,63 @@
 
 {% block content %}
 {% if ja_respondeu %}
-<div class="alert alert-success">
-  <i class="bi bi-check-circle-fill"></i> Você já respondeu a <strong>{{ ciclo.nome }}</strong>. Suas respostas são <strong>100% anônimas</strong> e não podem ser visualizadas.
+<div class="alert alert-success d-flex justify-content-between align-items-center">
+  <span><i class="bi bi-check-circle-fill"></i> Você já respondeu a <strong>{{ ciclo.nome }}</strong>.</span>
+  <a href="{{ url_for('pesquisa_secao', secao_id=1) }}" class="btn btn-sm btn-outline-primary">
+    <i class="bi bi-pencil"></i> Alterar Respostas
+  </a>
 </div>
+
+{% for secao in respostas_por_secao %}
+{% set respondidas = secao.respostas|selectattr('valor')|list|length %}
+{% set total = secao.respostas|length %}
+<div class="card mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <strong>{{ secao.nome }}</strong>
+    <span class="badge {% if respondidas == total %}bg-success{% else %}bg-warning text-dark{% endif %}">
+      {{ respondidas }}/{{ total }} respondidas
+    </span>
+  </div>
+  <div class="card-body">
+    {% for r in secao.respostas %}
+    <div class="mb-3 pb-3 {% if not loop.last %}border-bottom{% endif %}">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <span class="badge bg-secondary me-2">{{ r.codigo }}</span>
+          <strong>{{ r.texto }}</strong>
+        </div>
+      </div>
+      <div class="mt-2 ps-4">
+        {% if r.valor %}
+          {% if r.tipo in ['escala', 'multipla_escolha'] %}
+            <span class="badge bg-primary">{{ r.valor }}</span>
+          {% elif r.tipo == 'grid' %}
+            {% set items = r.valor.split(' | ') %}
+            <table class="table table-sm table-bordered mb-0 mt-1" style="max-width: 600px;">
+              {% for item in items %}
+              {% set parts = item.split(': ') %}
+              <tr>
+                <td class="fw-bold" style="width: 180px;">{{ parts[0] }}</td>
+                <td>{{ parts[1] if parts|length > 1 else '-' }}</td>
+              </tr>
+              {% endfor %}
+            </table>
+          {% else %}
+            <em class="text-muted">"{{ r.valor }}"</em>
+          {% endif %}
+          {% if r.comentario %}
+          <div class="mt-1"><small class="text-muted">Comentário: {{ r.comentario }}</small></div>
+          {% endif %}
+        {% else %}
+          <span class="text-muted fst-italic"><i class="bi bi-dash-circle"></i> Não respondida</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endfor %}
+
 {% else %}
 <div class="alert alert-warning">
   <i class="bi bi-exclamation-circle"></i> Você ainda não respondeu a <strong>{{ ciclo.nome }}</strong>.
@@ -14,6 +68,9 @@
 {% endif %}
 
 <div class="text-center mb-5">
+  <a href="{{ url_for('dashboard') }}" class="btn btn-primary me-2">
+    <i class="bi bi-house"></i> Dashboard
+  </a>
   <a href="{{ url_for('pesquisa') }}" class="btn btn-outline-secondary">
     <i class="bi bi-arrow-left"></i> Voltar
   </a>

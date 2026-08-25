@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Gerenciar Ciclos - Pesquisa de Clima Vizca{% endblock %}
+{% block titulo %}Gerenciar Ciclos{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h5 class="mb-0">Ciclos da Pesquisa</h5>
+  <a href="{{ url_for('admin_ciclo_novo') }}" class="btn btn-primary">
+    <i class="bi bi-plus-circle"></i> Novo Ciclo
+  </a>
+</div>
+
+{% for ciclo in ciclos %}
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-start">
+      <div>
+        <h5 class="mb-1">
+          {{ ciclo.nome }}
+          {% if ciclo.ativo %}
+            <span class="badge bg-success ms-2">Ativo</span>
+          {% else %}
+            <span class="badge bg-secondary ms-2">Inativo</span>
+          {% endif %}
+        </h5>
+        <p class="text-muted mb-2">
+          <i class="bi bi-calendar"></i> Ano: <strong>{{ ciclo.ano }}</strong>
+          {% if ciclo.formulario_nome %}
+            &nbsp;|&nbsp; <i class="bi bi-clipboard-data"></i> Formulário: <strong>{{ ciclo.formulario_nome }}</strong>
+          {% endif %}
+          {% if ciclo.data_inicio %}
+            &nbsp;|&nbsp; <i class="bi bi-calendar-event"></i> Início: <strong>{{ ciclo.data_inicio }}</strong>
+          {% endif %}
+          {% if ciclo.data_fim %}
+            &nbsp;|&nbsp; <i class="bi bi-calendar-check"></i> Fim: <strong>{{ ciclo.data_fim }}</strong>
+          {% endif %}
+        </p>
+      </div>
+      <div class="d-flex gap-2">
+        {% if not ciclo.ativo %}
+        <form method="POST" action="{{ url_for('admin_ciclo_ativar', ciclo_id=ciclo.id) }}" class="d-inline">
+          <button type="submit" class="btn btn-sm btn-outline-success" title="Ativar">
+            <i class="bi bi-toggle-on"></i>
+          </button>
+        </form>
+        {% endif %}
+        <a href="{{ url_for('admin_ciclo_editar', ciclo_id=ciclo.id) }}" class="btn btn-sm btn-outline-primary" title="Editar">
+          <i class="bi bi-pencil"></i>
+        </a>
+        <form method="POST" action="{{ url_for('admin_ciclo_excluir', ciclo_id=ciclo.id) }}" class="d-inline"
+              onsubmit="return confirm('Tem certeza que deseja excluir este ciclo?')">
+          <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
+            <i class="bi bi-trash"></i>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="alert alert-info">
+  <i class="bi bi-info-circle"></i> Nenhum ciclo cadastrado.
+</div>
+{% endfor %}
+{% endblock %}

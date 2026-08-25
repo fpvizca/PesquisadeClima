@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Formulários - Pesquisa de Clima Vizca{% endblock %}
+{% block titulo %}Gerenciar Formulários{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h5 class="mb-0">Formulários da Pesquisa</h5>
+  <a href="{{ url_for('admin_formulario_novo') }}" class="btn btn-primary">
+    <i class="bi bi-plus-circle"></i> Novo Formulário
+  </a>
+</div>
+
+{% for f in formularios %}
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-start">
+      <div>
+        <h5 class="mb-1">
+          {{ f.nome }}
+          {% if f.ativo %}
+            <span class="badge bg-success ms-2">Ativo</span>
+          {% else %}
+            <span class="badge bg-secondary ms-2">Inativo</span>
+          {% endif %}
+        </h5>
+        {% if f.descricao %}
+        <p class="text-muted mb-2">{{ f.descricao }}</p>
+        {% endif %}
+        <div class="d-flex gap-3">
+          <small><i class="bi bi-list-ul"></i> <strong>{{ f.total_secoes }}</strong> seções</small>
+          <small><i class="bi bi-question-circle"></i> <strong>{{ f.total_perguntas }}</strong> perguntas</small>
+        </div>
+      </div>
+      <div class="d-flex gap-2">
+        <a href="{{ url_for('admin_formulario_estrutura', formulario_id=f.id) }}" class="btn btn-sm btn-outline-primary" title="Editar Estrutura">
+          <i class="bi bi-gear"></i> Editar
+        </a>
+        <form method="POST" action="{{ url_for('admin_formulario_duplicar', formulario_id=f.id) }}" class="d-inline">
+          <button type="submit" class="btn btn-sm btn-outline-info" title="Duplicar">
+            <i class="bi bi-copy"></i>
+          </button>
+        </form>
+        <a href="{{ url_for('admin_formulario_editar', formulario_id=f.id) }}" class="btn btn-sm btn-outline-warning" title="Editar Dados">
+          <i class="bi bi-pencil"></i>
+        </a>
+        <form method="POST" action="{{ url_for('admin_formulario_excluir', formulario_id=f.id) }}" class="d-inline"
+              onsubmit="return confirm('Tem certeza que deseja excluir este formulário?')">
+          <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
+            <i class="bi bi-trash"></i>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="alert alert-info">
+  <i class="bi bi-info-circle"></i> Nenhum formulário cadastrado.
+</div>
+{% endfor %}
+{% endblock %}

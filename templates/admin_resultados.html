@@ -8,6 +8,9 @@
   <div>
     <span class="badge bg-info me-2">{{ total_habilitados }} habilitados</span>
     <span class="badge bg-success me-2">{{ total_respostas }} respostas</span>
+    <a href="{{ url_for('admin_exportar_word') }}" class="btn btn-primary btn-sm me-1">
+      <i class="bi bi-file-earmark-word"></i> Exportar Word
+    </a>
     <a href="{{ url_for('admin_exportar_excel') }}" class="btn btn-success btn-sm">
       <i class="bi bi-file-earmark-excel"></i> Exportar Excel
     </a>

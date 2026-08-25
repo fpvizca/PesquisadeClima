@@ -1,6 +1,6 @@
 import json
 import statistics
-from flask import render_template, request, redirect, session, url_for, flash, jsonify
+from flask import render_template, request, redirect, session, url_for, flash, jsonify, send_file
 from auth import login_required, has_role
 from db import get_db
 import ollama_helper
@@ -22,15 +22,29 @@ def init_routes(app):
         cookie_name = f'clima_respondeu_{ciclo["id"]}'
         ja_respondeu_cookie = request.cookies.get(cookie_name)
 
-        ja_respondeu = db.execute(
-            "SELECT COUNT(*) as c FROM respondentes WHERE ciclo_id = ? AND usuario_id = ?",
+        # Check if user has any responses
+        tem_respostas = db.execute(
+            "SELECT COUNT(*) as c FROM respostas WHERE ciclo_id = ? AND usuario_id = ?",
             (ciclo['id'], usuario_id)
-        ).fetchone()['c'] or ja_respondeu_cookie
-
-        secoes = db.execute("SELECT * FROM secoes WHERE ativo = 1 ORDER BY ordem").fetchall()
-        total_perguntas = db.execute(
-            "SELECT COUNT(*) as c FROM perguntas WHERE secao_id IN (SELECT id FROM secoes WHERE ativo = 1)"
         ).fetchone()['c']
+
+        ja_respondeu = tem_respostas > 0 or ja_respondeu_cookie
+
+        # Fetch sections linked to the cycle's form
+        if ciclo['formulario_id']:
+            secoes = db.execute(
+                "SELECT * FROM secoes WHERE formulario_id = ? AND ativo = 1 ORDER BY ordem",
+                (ciclo['formulario_id'],)
+            ).fetchall()
+            total_perguntas = db.execute(
+                "SELECT COUNT(*) as c FROM perguntas WHERE secao_id IN (SELECT id FROM secoes WHERE formulario_id = ? AND ativo = 1)",
+                (ciclo['formulario_id'],)
+            ).fetchone()['c']
+        else:
+            secoes = db.execute("SELECT * FROM secoes WHERE ativo = 1 ORDER BY ordem").fetchall()
+            total_perguntas = db.execute(
+                "SELECT COUNT(*) as c FROM perguntas WHERE secao_id IN (SELECT id FROM secoes WHERE ativo = 1)"
+            ).fetchone()['c']
 
         return render_template('pesquisa.html',
             ciclo=ciclo,
@@ -49,7 +63,15 @@ def init_routes(app):
             flash('Nenhum ciclo ativo encontrado.', 'warning')
             return redirect(url_for('index'))
 
-        secoes = db.execute("SELECT * FROM secoes WHERE ativo = 1 ORDER BY ordem").fetchall()
+        # Fetch sections linked to the cycle's form
+        if ciclo['formulario_id']:
+            secoes = db.execute(
+                "SELECT * FROM secoes WHERE formulario_id = ? AND ativo = 1 ORDER BY ordem",
+                (ciclo['formulario_id'],)
+            ).fetchall()
+        else:
+            secoes = db.execute("SELECT * FROM secoes WHERE ativo = 1 ORDER BY ordem").fetchall()
+
         secao_atual = None
         for i, s in enumerate(secoes):
             if s['id'] == secao_id:
@@ -68,8 +90,8 @@ def init_routes(app):
         respostas_existentes = {}
         for p in perguntas:
             r = db.execute(
-                "SELECT valor, comentario FROM respostas WHERE ciclo_id = ? AND pergunta_id = ?",
-                (ciclo['id'], p['id'])
+                "SELECT valor, comentario FROM respostas WHERE ciclo_id = ? AND pergunta_id = ? AND usuario_id = ?",
+                (ciclo['id'], p['id'], usuario_id)
             ).fetchone()
             if r:
                 respostas_existentes[p['id']] = {'valor': r['valor'], 'comentario': r['comentario']}
@@ -79,17 +101,26 @@ def init_routes(app):
                 valor = request.form.get(f'pergunta_{p["id"]}', '').strip()
                 comentario = request.form.get(f'comentario_{p["id"]}', '').strip()
 
+                # Grid: collect per-row answers into a single value
+                if p['tipo'] == 'grid' and not valor:
+                    grid_rows = [r.strip() for r in (p['grid_rows'] or '').split(',') if r.strip()]
+                    row_vals = []
+                    for i in range(len(grid_rows)):
+                        rv = request.form.get(f'grid_{p["id"]}_{i}', '').strip()
+                        row_vals.append(f'{grid_rows[i]}: {rv}' if rv else f'{grid_rows[i]}:')
+                    valor = ' | '.join(row_vals)
+
                 if p['obrigatoria'] and not valor:
                     flash(f'Por favor, responda: {p["texto"]}', 'danger')
                     return redirect(url_for('pesquisa_secao', secao_id=secao_id))
 
                 if valor or comentario:
                     db.execute("""
-                        INSERT INTO respostas (ciclo_id, pergunta_id, valor, comentario)
-                        VALUES (?, ?, ?, ?)
-                        ON CONFLICT(ciclo_id, pergunta_id)
+                        INSERT INTO respostas (ciclo_id, pergunta_id, usuario_id, valor, comentario)
+                        VALUES (?, ?, ?, ?, ?)
+                        ON CONFLICT(ciclo_id, pergunta_id, usuario_id)
                         DO UPDATE SET valor = excluded.valor, comentario = excluded.comentario, respondido_em = CURRENT_TIMESTAMP
-                    """, (ciclo['id'], p['id'], valor if valor else None, comentario if comentario else None))
+                    """, (ciclo['id'], p['id'], usuario_id, valor if valor else None, comentario if comentario else None))
             db.commit()
 
             proximo_index = secao_index + 1
@@ -133,14 +164,51 @@ def init_routes(app):
         cookie_name = f'clima_respondeu_{ciclo["id"]}'
         ja_respondeu_cookie = request.cookies.get(cookie_name)
 
-        ja_respondeu = db.execute(
-            "SELECT COUNT(*) as c FROM respondentes WHERE ciclo_id = ? AND usuario_id = ?",
+        # Check if user has any responses
+        tem_respostas = db.execute(
+            "SELECT COUNT(*) as c FROM respostas WHERE ciclo_id = ? AND usuario_id = ?",
             (ciclo['id'], usuario_id)
-        ).fetchone()['c'] or ja_respondeu_cookie
+        ).fetchone()['c']
+
+        ja_respondeu = tem_respostas > 0 or ja_respondeu_cookie
+
+        # Fetch sections linked to the cycle's form
+        respostas_por_secao = []
+        if ja_respondeu:
+            if ciclo['formulario_id']:
+                secoes = db.execute(
+                    "SELECT * FROM secoes WHERE formulario_id = ? AND ativo = 1 ORDER BY ordem",
+                    (ciclo['formulario_id'],)
+                ).fetchall()
+            else:
+                secoes = db.execute("SELECT * FROM secoes WHERE ativo = 1 ORDER BY ordem").fetchall()
+            for secao in secoes:
+                perguntas = db.execute(
+                    "SELECT * FROM perguntas WHERE secao_id = ? AND ativo = 1 ORDER BY ordem",
+                    (secao['id'],)
+                ).fetchall()
+                respostas_secao = []
+                for p in perguntas:
+                    r = db.execute(
+                        "SELECT valor, comentario FROM respostas WHERE ciclo_id = ? AND pergunta_id = ? AND usuario_id = ?",
+                        (ciclo['id'], p['id'], usuario_id)
+                    ).fetchone()
+                    respostas_secao.append({
+                        'codigo': p['codigo'],
+                        'texto': p['texto'],
+                        'tipo': p['tipo'],
+                        'valor': r['valor'] if r and r['valor'] else None,
+                        'comentario': r['comentario'] if r else None
+                    })
+                respostas_por_secao.append({
+                    'nome': secao['nome'],
+                    'respostas': respostas_secao
+                })
 
         return render_template('minhas_respostas.html',
             ciclo=ciclo,
-            ja_respondeu=ja_respondeu
+            ja_respondeu=ja_respondeu,
+            respostas_por_secao=respostas_por_secao
         )
 
     @app.route('/admin/resultados')
@@ -157,7 +225,15 @@ def init_routes(app):
             flash('Nenhum ciclo ativo encontrado.', 'warning')
             return redirect(url_for('index'))
 
-        secoes = db.execute("SELECT * FROM secoes WHERE ativo = 1 ORDER BY ordem").fetchall()
+        # Fetch sections linked to the cycle's form
+        if ciclo['formulario_id']:
+            secoes = db.execute(
+                "SELECT * FROM secoes WHERE formulario_id = ? AND ativo = 1 ORDER BY ordem",
+                (ciclo['formulario_id'],)
+            ).fetchall()
+        else:
+            secoes = db.execute("SELECT * FROM secoes WHERE ativo = 1 ORDER BY ordem").fetchall()
+
         dados = []
         for secao in secoes:
             perguntas = db.execute(
@@ -225,7 +301,15 @@ def init_routes(app):
             flash('Nenhum ciclo ativo encontrado.', 'warning')
             return redirect(url_for('index'))
 
-        secoes = db.execute("SELECT * FROM secoes WHERE ativo = 1 ORDER BY ordem").fetchall()
+        # Fetch sections linked to the cycle's form
+        if ciclo['formulario_id']:
+            secoes = db.execute(
+                "SELECT * FROM secoes WHERE formulario_id = ? AND ativo = 1 ORDER BY ordem",
+                (ciclo['formulario_id'],)
+            ).fetchall()
+        else:
+            secoes = db.execute("SELECT * FROM secoes WHERE ativo = 1 ORDER BY ordem").fetchall()
+
         total_habilitados = db.execute(
             "SELECT COUNT(*) as c FROM usuario_roles WHERE role = 'colaborador'"
         ).fetchone()['c']
@@ -410,16 +494,15 @@ Seja objetivo, use dados numéricos e escreva em português brasileiro profissio
         ws_resumo['A2'] = f'Habilitados: {total_habilitados} | Respostas: {total_respostas}'
         ws_resumo['A2'].font = Font(name='Arial', size=10, italic=True)
 
-        row = 4
-        headers = ['Seção', 'Média', '% Satisfatório', 'Total Respostas']
-        for col, h in enumerate(headers, 1):
-            cell = ws_resumo.cell(row=row, column=col, value=h)
-            cell.font = header_font
-            cell.fill = header_fill
-            cell.alignment = Alignment(horizontal='center')
-            cell.border = thin_border
+        # Fetch sections linked to the cycle's form
+        if ciclo['formulario_id']:
+            secoes = db.execute(
+                "SELECT * FROM secoes WHERE formulario_id = ? AND ativo = 1 ORDER BY ordem",
+                (ciclo['formulario_id'],)
+            ).fetchall()
+        else:
+            secoes = db.execute("SELECT * FROM secoes WHERE ativo = 1 ORDER BY ordem").fetchall()
 
-        secoes = db.execute("SELECT * FROM secoes WHERE ativo = 1 ORDER BY ordem").fetchall()
         row = 5
         for secao in secoes:
             perguntas = db.execute(
@@ -604,4 +687,421 @@ Seja objetivo, use dados numéricos e escreva em português brasileiro profissio
 
         filename = f'Resultados_Clima_{ciclo["ano"]}.xlsx'
         return send_file(output, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                         as_attachment=True, download_name=filename)
+
+    @app.route('/admin/exportar-word')
+    @login_required
+    def admin_exportar_word():
+        import io
+        from docx import Document
+        from docx.shared import Inches, Pt, Cm, RGBColor
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+        from docx.enum.table import WD_TABLE_ALIGNMENT
+        from docx.oxml.ns import qn
+
+        db = get_db()
+        if not has_role(session['usuario_id'], 'admin'):
+            flash('Acesso negado.', 'danger')
+            return redirect(url_for('pesquisa'))
+
+        ciclo = db.execute("SELECT * FROM ciclos WHERE ativo = 1 ORDER BY id DESC LIMIT 1").fetchone()
+        if not ciclo:
+            flash('Nenhum ciclo ativo encontrado.', 'warning')
+            return redirect(url_for('index'))
+
+        total_habilitados = db.execute(
+            "SELECT COUNT(*) as c FROM usuario_roles WHERE role = 'colaborador'"
+        ).fetchone()['c']
+        total_respostas = db.execute(
+            "SELECT COUNT(*) as c FROM respostas WHERE ciclo_id = ?",
+            (ciclo['id'],)
+        ).fetchone()['c']
+
+        # Fetch sections linked to the cycle's form
+        if ciclo['formulario_id']:
+            secoes = db.execute(
+                "SELECT * FROM secoes WHERE formulario_id = ? AND ativo = 1 ORDER BY ordem",
+                (ciclo['formulario_id'],)
+            ).fetchall()
+        else:
+            secoes = db.execute("SELECT * FROM secoes WHERE ativo = 1 ORDER BY ordem").fetchall()
+
+        doc = Document()
+
+        style = doc.styles['Normal']
+        font = style.font
+        font.name = 'Calibri'
+        font.size = Pt(11)
+
+        for section in doc.sections:
+            section.top_margin = Cm(2.5)
+            section.bottom_margin = Cm(2.5)
+            section.left_margin = Cm(2.5)
+            section.right_margin = Cm(2.5)
+
+        # -- Capa --
+        for _ in range(6):
+            doc.add_paragraph('')
+
+        p = doc.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = p.add_run('Pesquisa de Clima Organizacional')
+        run.font.size = Pt(28)
+        run.font.color.rgb = RGBColor(31, 78, 121)
+        run.bold = True
+
+        p = doc.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = p.add_run(ciclo['nome'])
+        run.font.size = Pt(18)
+        run.font.color.rgb = RGBColor(100, 100, 100)
+
+        doc.add_paragraph('')
+
+        p = doc.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = p.add_run(f'Relatório de Resultados')
+        run.font.size = Pt(14)
+        run.font.color.rgb = RGBColor(100, 100, 100)
+
+        p = doc.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = p.add_run(f'Ano: {ciclo["ano"]}')
+        run.font.size = Pt(12)
+        run.font.color.rgb = RGBColor(100, 100, 100)
+
+        doc.add_page_break()
+
+        # -- Sumário Executivo --
+        h = doc.add_heading('1. Sumário Executivo', level=1)
+        for run in h.runs:
+            run.font.color.rgb = RGBColor(31, 78, 121)
+
+        doc.add_paragraph(
+            f'O presente relatório apresenta os resultados da {ciclo["nome"]}, '
+            f'realizada no ano de {ciclo["ano"]}. A pesquisa teve como objetivo analisar a percepção '
+            f'dos colaboradores em relação ao ambiente de trabalho, cultura organizacional, '
+            f'bem-estar, diversidade e inclusão.'
+        )
+
+        p = doc.add_paragraph()
+        run = p.add_run('Participação: ')
+        run.bold = True
+        p.add_run(f'{total_respostas} respostas de {total_habilitados} colaboradores habilitados '
+                  f'({round(total_respostas / total_habilitados * 100, 1) if total_habilitados > 0 else 0}% de adesão)')
+
+        # -- Resumo por Seção --
+        h = doc.add_heading('2. Resumo por Seção', level=1)
+        for run in h.runs:
+            run.font.color.rgb = RGBColor(31, 78, 121)
+
+        table = doc.add_table(rows=1, cols=4)
+        table.style = 'Light Grid Accent 1'
+        table.alignment = WD_TABLE_ALIGNMENT.CENTER
+        hdr = table.rows[0].cells
+        for i, txt in enumerate(['Seção', 'Média', '% Satisfatório', 'Respostas']):
+            hdr[i].text = txt
+            for paragraph in hdr[i].paragraphs:
+                for run in paragraph.runs:
+                    run.bold = True
+
+        dados_resumo = []
+        for secao in secoes:
+            perguntas_esc = db.execute(
+                "SELECT * FROM perguntas WHERE secao_id = ? AND ativo = 1 AND tipo = 'escala' ORDER BY ordem",
+                (secao['id'],)
+            ).fetchall()
+
+            medias = []
+            total_pond = 0
+            total_satisf = 0
+
+            for p in perguntas_esc:
+                contagem = db.execute("""
+                    SELECT valor, COUNT(*) as cnt FROM respostas
+                    WHERE ciclo_id = ? AND pergunta_id = ? AND valor IS NOT NULL
+                    GROUP BY valor
+                """, (ciclo['id'], p['id'])).fetchall()
+
+                mapa = {r['valor']: r['cnt'] for r in contagem}
+                total_p = sum(mapa.values())
+                if total_p > 0:
+                    nota = (mapa.get('Concordo totalmente', 0) * 5 + mapa.get('Concordo', 0) * 4 +
+                            mapa.get('Não concordo e nem discordo', 0) * 3 + mapa.get('Discordo', 0) * 2 +
+                            mapa.get('Discordo totalmente', 0) * 1) / total_p
+                    medias.append(nota)
+                    total_pond += total_p
+                    total_satisf += mapa.get('Concordo totalmente', 0) + mapa.get('Concordo', 0)
+
+            media = round(sum(medias) / len(medias), 2) if medias else None
+            pct = round(total_satisf / total_pond * 100, 1) if total_pond > 0 else 0
+
+            row = table.add_row().cells
+            row[0].text = secao['nome']
+            row[1].text = str(media) if media else '-'
+            row[2].text = f'{pct}%'
+            row[3].text = str(total_pond)
+            dados_resumo.append({'nome': secao['nome'], 'media': media, 'pct': pct})
+
+        doc.add_paragraph('')
+
+        # -- Gráficos Resumo --
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+        import matplotlib.ticker as mticker
+        import tempfile
+        import os
+
+        tmp_dir = tempfile.mkdtemp()
+
+        nomes_secoes = [d['nome'] for d in dados_resumo if d['media'] is not None]
+        medias_secoes = [d['media'] for d in dados_resumo if d['media'] is not None]
+        pcts_secoes = [d['pct'] for d in dados_resumo if d['media'] is not None]
+
+        if medias_secoes:
+            h = doc.add_heading('2.1 Visão Geral', level=2)
+            for run in h.runs:
+                run.font.color.rgb = RGBColor(31, 78, 121)
+
+            # Gráfico de Médias por Seção
+            fig, ax = plt.subplots(figsize=(8, 4))
+            colors = ['#2ecc71' if m >= 4 else '#f39c12' if m >= 3 else '#e74c3c' for m in medias_secoes]
+            bars = ax.barh(nomes_secoes, medias_secoes, color=colors, edgecolor='white', height=0.6)
+            ax.set_xlim(0, 5)
+            ax.set_xlabel('Média (escala 1 a 5)', fontsize=10)
+            ax.set_title('Média por Seção', fontsize=13, fontweight='bold', color='#1F4E79', pad=12)
+            ax.xaxis.set_major_locator(mticker.FixedLocator([1, 2, 3, 4, 5]))
+            for bar, val in zip(bars, medias_secoes):
+                ax.text(bar.get_width() + 0.05, bar.get_y() + bar.get_height()/2, f'{val}', va='center', fontsize=9, fontweight='bold')
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            plt.tight_layout()
+            path_media = os.path.join(tmp_dir, 'media_secoes.png')
+            fig.savefig(path_media, dpi=200, bbox_inches='tight')
+            plt.close(fig)
+
+            doc.add_picture(path_media, width=Inches(6))
+            last_paragraph = doc.paragraphs[-1]
+            last_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p_cap = doc.add_paragraph()
+            p_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            run = p_cap.add_run('Gráfico 1 – Média de satisfação por seção (escala 1 a 5)')
+            run.font.size = Pt(9)
+            run.font.color.rgb = RGBColor(100, 100, 100)
+            run.italic = True
+
+            doc.add_paragraph('')
+
+            # Gráfico de % Satisfatório
+            fig2, ax2 = plt.subplots(figsize=(8, 4))
+            colors2 = ['#2ecc71' if p >= 70 else '#f39c12' if p >= 50 else '#e74c3c' for p in pcts_secoes]
+            bars2 = ax2.barh(nomes_secoes, pcts_secoes, color=colors2, edgecolor='white', height=0.6)
+            ax2.set_xlim(0, 100)
+            ax2.set_xlabel('% Satisfatório', fontsize=10)
+            ax2.set_title('Percentual Satisfatório por Seção', fontsize=13, fontweight='bold', color='#1F4E79', pad=12)
+            for bar, val in zip(bars2, pcts_secoes):
+                ax2.text(bar.get_width() + 1, bar.get_y() + bar.get_height()/2, f'{val}%', va='center', fontsize=9, fontweight='bold')
+            ax2.spines['top'].set_visible(False)
+            ax2.spines['right'].set_visible(False)
+            plt.tight_layout()
+            path_pct = os.path.join(tmp_dir, 'pct_secoes.png')
+            fig2.savefig(path_pct, dpi=200, bbox_inches='tight')
+            plt.close(fig2)
+
+            doc.add_picture(path_pct, width=Inches(6))
+            last_paragraph = doc.paragraphs[-1]
+            last_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p_cap2 = doc.add_paragraph()
+            p_cap2.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            run = p_cap2.add_run('Gráfico 2 – Percentual de respostas satisfatórias (Concordo + Concordo totalmente)')
+            run.font.size = Pt(9)
+            run.font.color.rgb = RGBColor(100, 100, 100)
+            run.italic = True
+
+            doc.add_page_break()
+
+        # -- Detalhamento por Seção --
+        h = doc.add_heading('3. Detalhamento por Seção', level=1)
+        for run in h.runs:
+            run.font.color.rgb = RGBColor(31, 78, 121)
+
+        for secao in secoes:
+            h2 = doc.add_heading(secao['nome'], level=2)
+            for run in h2.runs:
+                run.font.color.rgb = RGBColor(31, 78, 121)
+
+            if secao['descricao']:
+                p = doc.add_paragraph()
+                run = p.add_run(secao['descricao'].replace('<p class="mb-0">', '').replace('<p class="mb-2">', '').replace('<hr class="my-2">', '---').replace('<strong>', '').replace('</strong>', '').replace('<em>', '').replace('</em>', '').replace('<br>', '\n').replace('</p>', '').strip())
+                run.font.size = Pt(10)
+                run.font.color.rgb = RGBColor(100, 100, 100)
+                run.italic = True
+
+            perguntas = db.execute(
+                "SELECT * FROM perguntas WHERE secao_id = ? AND ativo = 1 ORDER BY ordem",
+                (secao['id'],)
+            ).fetchall()
+
+            for p in perguntas:
+                contagem = db.execute("""
+                    SELECT valor, COUNT(*) as cnt FROM respostas
+                    WHERE ciclo_id = ? AND pergunta_id = ? AND valor IS NOT NULL
+                    GROUP BY valor
+                """, (ciclo['id'], p['id'])).fetchall()
+
+                mapa = {r['valor']: r['cnt'] for r in contagem}
+                total_p = sum(mapa.values())
+
+                if p['tipo'] == 'escala' and total_p > 0:
+                    nota = (mapa.get('Concordo totalmente', 0) * 5 + mapa.get('Concordo', 0) * 4 +
+                            mapa.get('Não concordo e nem discordo', 0) * 3 + mapa.get('Discordo', 0) * 2 +
+                            mapa.get('Discordo totalmente', 0) * 1) / total_p
+                    pct_satisf = round((mapa.get('Concordo totalmente', 0) + mapa.get('Concordo', 0)) / total_p * 100, 1)
+
+                    p_doc = doc.add_paragraph()
+                    run = p_doc.add_run(f'{p["codigo"]} - {p["texto"]}')
+                    run.bold = True
+                    run.font.size = Pt(10)
+
+                    tbl = doc.add_table(rows=2, cols=6)
+                    tbl.style = 'Light List Accent 1'
+                    headers_esc = ['', 'Concordo totalmente', 'Concordo', 'Neutro', 'Discordo', 'Discordo totalmente']
+                    for i, txt in enumerate(headers_esc):
+                        tbl.rows[0].cells[i].text = txt
+                        for par in tbl.rows[0].cells[i].paragraphs:
+                            for r in par.runs:
+                                r.font.size = Pt(9)
+                                r.bold = True
+
+                    vals = [total_p, mapa.get('Concordo totalmente', 0), mapa.get('Concordo', 0),
+                            mapa.get('Não concordo e nem discordo', 0), mapa.get('Discordo', 0),
+                            mapa.get('Discordo totalmente', 0)]
+                    for i, v in enumerate(vals):
+                        tbl.rows[1].cells[i].text = str(v)
+                        for par in tbl.rows[1].cells[i].paragraphs:
+                            for r in par.runs:
+                                r.font.size = Pt(9)
+
+                    p_nota = doc.add_paragraph()
+                    run = p_nota.add_run(f'Média: {round(nota, 2)} | Satisfatório: {pct_satisf}%')
+                    run.font.size = Pt(9)
+                    run.font.color.rgb = RGBColor(31, 78, 121)
+
+                    # Gráfico de pizza para a pergunta
+                    labels = ['Concordo totalmente', 'Concordo', 'Neutro', 'Discordo', 'Discordo totalmente']
+                    sizes = [mapa.get(l, 0) for l in labels]
+                    if sum(sizes) > 0:
+                        colors_pie = ['#27ae60', '#2ecc71', '#f39c12', '#e74c3c', '#c0392b']
+                        fig_pie, ax_pie = plt.subplots(figsize=(5, 3))
+                        wedges, texts, autotexts = ax_pie.pie(
+                            [s for s in sizes if s > 0],
+                            labels=[l for l, s in zip(labels, sizes) if s > 0],
+                            colors=[c for c, s in zip(colors_pie, sizes) if s > 0],
+                            autopct='%1.0f%%', startangle=90, textprops={'fontsize': 8}
+                        )
+                        for at in autotexts:
+                            at.set_fontsize(8)
+                            at.set_fontweight('bold')
+                        ax_pie.set_title(f'{p["codigo"]}', fontsize=9, fontweight='bold', color='#1F4E79', pad=8)
+                        plt.tight_layout()
+                        path_pie = os.path.join(tmp_dir, f'q_{p["id"]}.png')
+                        fig_pie.savefig(path_pie, dpi=150, bbox_inches='tight')
+                        plt.close(fig_pie)
+
+                        doc.add_picture(path_pie, width=Inches(3.5))
+                        last_paragraph = doc.paragraphs[-1]
+                        last_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                        p_cap_q = doc.add_paragraph()
+                        p_cap_q.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                        run = p_cap_q.add_run(f'Fig. – Distribuição de respostas: {p["texto"][:80]}')
+                        run.font.size = Pt(8)
+                        run.font.color.rgb = RGBColor(100, 100, 100)
+                        run.italic = True
+
+                elif p['tipo'] in ('texto', 'paragrafo'):
+                    respostas_texto = db.execute("""
+                        SELECT valor FROM respostas
+                        WHERE ciclo_id = ? AND pergunta_id = ? AND valor IS NOT NULL AND valor != ''
+                    """, (ciclo['id'], p['id'])).fetchall()
+
+                    if respostas_texto:
+                        p_doc = doc.add_paragraph()
+                        run = p_doc.add_run(f'{p["codigo"]} - {p["texto"]}')
+                        run.bold = True
+                        run.font.size = Pt(10)
+
+                        for resp in respostas_texto:
+                            p_resp = doc.add_paragraph(style='List Bullet')
+                            run = p_resp.add_run(resp['valor'])
+                            run.font.size = Pt(10)
+
+                doc.add_paragraph('')
+
+        # -- Respostas Abertas --
+        perguntas_abertas = db.execute("""
+            SELECT p.codigo, p.texto, s.nome as secao_nome, r.valor
+            FROM respostas r JOIN perguntas p ON r.pergunta_id = p.id JOIN secoes s ON p.secao_id = s.id
+            WHERE r.ciclo_id = ? AND p.tipo IN ('texto', 'paragrafo') AND r.valor IS NOT NULL AND r.valor != ''
+            ORDER BY s.ordem, p.ordem
+        """, (ciclo['id'],)).fetchall()
+
+        if perguntas_abertas:
+            h = doc.add_heading('4. Respostas Abertas', level=1)
+            for run in h.runs:
+                run.font.color.rgb = RGBColor(31, 78, 121)
+
+            current_secao = None
+            for resp in perguntas_abertas:
+                if resp['secao_nome'] != current_secao:
+                    current_secao = resp['secao_nome']
+                    h2 = doc.add_heading(current_secao, level=2)
+                    for run in h2.runs:
+                        run.font.color.rgb = RGBColor(31, 78, 121)
+
+                p_doc = doc.add_paragraph()
+                run = p_doc.add_run(f'{resp["codigo"]} - {resp["texto"]}')
+                run.bold = True
+                run.font.size = Pt(10)
+
+                p_resp = doc.add_paragraph(style='List Bullet')
+                run = p_resp.add_run(resp['valor'])
+                run.font.size = Pt(10)
+
+            doc.add_paragraph('')
+
+        # -- Considerações Finais --
+        h = doc.add_heading('Considerações Finais', level=1)
+        for run in h.runs:
+            run.font.color.rgb = RGBColor(31, 78, 121)
+
+        melhor_secao = max(dados_resumo, key=lambda x: x['media'] if x['media'] else 0) if dados_resumo else None
+        pior_secao = min(dados_resumo, key=lambda x: x['media'] if x['media'] else 999) if dados_resumo else None
+
+        if melhor_secao and pior_secao:
+            doc.add_paragraph(
+                f'A seção com melhor avaliação foi "{melhor_secao["nome"]}" '
+                f'(média {melhor_secao["media"]}), enquanto "{pior_secao["nome"]}" '
+                f'apresentou a menor média ({pior_secao["media"]}).'
+            )
+
+        doc.add_paragraph(
+            'Os dados coletados servem como base para o desenvolvimento de planos de ação '
+            'que visam melhorar continuamente o ambiente de trabalho e a experiência dos colaboradores.'
+        )
+
+        # Limpar arquivos temporários
+        import shutil
+        try:
+            shutil.rmtree(tmp_dir)
+        except Exception:
+            pass
+
+        # Salvar
+        output = io.BytesIO()
+        doc.save(output)
+        output.seek(0)
+
+        filename = f'Relatorio_Clima_{ciclo["ano"]}.docx'
+        return send_file(output, mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                          as_attachment=True, download_name=filename)

@@ -3,11 +3,20 @@
 {% block titulo %}{{ secao.nome }}{% endblock %}
 
 {% block content %}
+<!-- Nome da Seção -->
+<div class="mb-4">
+  <h3 class="fw-bold text-primary mb-2">{{ secao.nome }}</h3>
+  {% if secao.descricao %}
+  <div class="section-description p-3 rounded mb-3">
+    {{ secao.descricao|safe }}
+  </div>
+  {% endif %}
+</div>
+
 <!-- Progresso -->
 <div class="mb-4">
   <div class="d-flex justify-content-between align-items-center mb-1">
     <small class="text-muted">Seção {{ secao_atual_index }} de {{ total_secoes }}</small>
-    <small class="text-muted">{{ secao.nome }}</small>
   </div>
   <div class="progress" style="height: 8px;">
     <div class="progress-bar" role="progressbar"
@@ -15,24 +24,27 @@
   </div>
 </div>
 
-<!-- Descrição da seção -->
-{% if secao.descricao %}
-<div class="alert alert-light border mb-4">
-  <small>{{ secao.descricao }}</small>
-</div>
-{% endif %}
-
 <form method="POST">
   {% for pergunta in perguntas %}
-  <div class="card mb-3">
+  <div class="card mb-3" id="pergunta_{{ pergunta.id }}"
+       {% if pergunta.condicional %}
+       data-condicional="1"
+       data-condicao-pergunta="{{ pergunta.condicao_pergunta }}"
+       data-condicao-valor="{{ pergunta.condicao_valor }}"
+       {% endif %}>
     <div class="card-body">
-      <p class="fw-bold mb-3">
+      <p class="fw-bold mb-2">
         <span class="badge bg-secondary me-1">{{ pergunta.codigo }}</span>
         {{ pergunta.texto }}
         {% if pergunta.obrigatoria %}
         <span class="text-danger">*</span>
         {% endif %}
       </p>
+      {% if pergunta.descricao %}
+      <div class="question-description p-3 mb-3 rounded">
+        {{ pergunta.descricao|safe }}
+      </div>
+      {% endif %}
 
       {% if pergunta.tipo == 'escala' %}
       <!-- Escala Likert 5 pontos -->
@@ -42,8 +54,7 @@
           <input class="form-check-input" type="radio"
                  name="pergunta_{{ pergunta.id }}" id="q{{ pergunta.id }}_{{ loop.index }}"
                  value="{{ opcao }}"
-                 {% if respostas_existentes.get(pergunta.id, {}).get('valor') == opcao %}checked{% endif %}
-                 {% if pergunta.obrigatoria %}required{% endif %}>
+                 {% if respostas_existentes.get(pergunta.id, {}).get('valor') == opcao %}checked{% endif %}>
           <label class="form-check-label" for="q{{ pergunta.id }}_{{ loop.index }}">{{ opcao }}</label>
         </div>
         {% endfor %}
@@ -60,8 +71,7 @@
           <input class="form-check-input" type="radio"
                  name="pergunta_{{ pergunta.id }}" id="q{{ pergunta.id }}_{{ loop.index }}"
                  value="{{ opcao }}"
-                 {% if respostas_existentes.get(pergunta.id, {}).get('valor') == opcao %}checked{% endif %}
-                 {% if pergunta.obrigatoria %}required{% endif %}>
+                 {% if respostas_existentes.get(pergunta.id, {}).get('valor') == opcao %}checked{% endif %}>
           <label class="form-check-label" for="q{{ pergunta.id }}_{{ loop.index }}">{{ opcao }}</label>
         </div>
         {% endif %}
@@ -73,19 +83,17 @@
       <input type="text" class="form-control"
              name="pergunta_{{ pergunta.id }}"
              value="{{ respostas_existentes.get(pergunta.id, {}).get('valor', '') }}"
-             placeholder="Sua resposta"
-             {% if pergunta.obrigatoria %}required{% endif %}>
+             placeholder="Sua resposta">
 
       {% elif pergunta.tipo == 'paragrafo' %}
       <!-- Campo de texto longo -->
       <textarea class="form-control" rows="3"
-                name="pergunta_{{ pergunta.id }}"
-                {% if pergunta.obrigatoria %}required{% endif %}>{{ respostas_existentes.get(pergunta.id, {}).get('valor', '') }}</textarea>
+                name="pergunta_{{ pergunta.id }}">{{ respostas_existentes.get(pergunta.id, {}).get('valor', '') }}</textarea>
 
       {% elif pergunta.tipo == 'grid' %}
       <!-- Grid (tabela de escala) -->
       <div class="table-responsive">
-        <table class="table table-bordered table-sm">
+        <table class="table table-bordered table-sm grid-table" data-pergunta-id="{{ pergunta.id }}">
           <thead>
             <tr>
               <th></th>
@@ -95,22 +103,31 @@
             </tr>
           </thead>
           <tbody>
-            {% for row in ['Gênero', 'Idade', 'Cor ou raça', 'Religião', 'Orientação sexual', 'Condição física'] %}
+            {% set grid_rows = pergunta.grid_rows.split(',') if pergunta.grid_rows else [] %}
+            {% for row in grid_rows %}
+            {% set row = row.strip() %}
+            {% if row %}
+            {% set row_index = loop.index0 %}
             <tr>
               <td class="fw-bold">{{ row }}</td>
               {% for opt in ['Concordo totalmente', 'Concordo', 'Não concordo e nem discordo', 'Discordo', 'Discordo totalmente'] %}
               <td class="text-center">
-                <input class="form-check-input" type="radio"
-                       name="grid_{{ pergunta.id }}_{{ loop.parent.loop.index }}"
-                       value="{{ opt }}"
-                       {% if pergunta.obrigatoria %}required{% endif %}>
+                <input class="form-check-input grid-radio" type="radio"
+                       name="grid_{{ pergunta.id }}_{{ row_index }}"
+                       value="{{ opt }}">
               </td>
               {% endfor %}
             </tr>
+            {% endif %}
             {% endfor %}
           </tbody>
         </table>
       </div>
+      {% if pergunta.obrigatoria %}
+      <div class="text-danger small mt-1 grid-error" id="grid_error_{{ pergunta.id }}" style="display: none;">
+        <i class="bi bi-exclamation-circle"></i> Por favor, selecione uma opção para cada linha.
+      </div>
+      {% endif %}
       {% endif %}
 
       {% if pergunta.tipo in ['texto', 'paragrafo'] %}
@@ -149,4 +166,138 @@
     </button>
   </div>
 </form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  function checkCondition(perguntaDiv) {
+    var condicaoPergunta = perguntaDiv.dataset.condicaoPergunta;
+    var condicaoValor = perguntaDiv.dataset.condicaoValor.split('|');
+    
+    // Find the condition source question
+    var sourceInput = document.querySelector('[name="pergunta_' + condicaoPergunta + '"]');
+    if (!sourceInput) return true;
+    
+    var currentValue = sourceInput.value;
+    return condicaoValor.includes(currentValue);
+  }
+  
+  function toggleConditional() {
+    document.querySelectorAll('[data-condicional="1"]').forEach(function(perguntaDiv) {
+      var show = checkCondition(perguntaDiv);
+      perguntaDiv.style.display = show ? 'block' : 'none';
+      var requiredInputs = perguntaDiv.querySelectorAll('[required]');
+      requiredInputs.forEach(function(input) {
+        input.required = show && perguntaDiv.querySelector('.text-danger') !== null;
+      });
+    });
+  }
+  
+  document.querySelectorAll('input[type="radio"]').forEach(function(radio) {
+    radio.addEventListener('change', toggleConditional);
+  });
+  
+  toggleConditional();
+  
+  // Show/hide error for a specific question card
+  function showError(card, msg) {
+    card.style.border = '2px solid #dc3545';
+    var err = card.querySelector('.field-error');
+    if (!err) {
+      err = document.createElement('div');
+      err.className = 'text-danger small mt-1 field-error';
+      card.querySelector('.card-body').appendChild(err);
+    }
+    err.innerHTML = '<i class="bi bi-exclamation-circle"></i> ' + msg;
+    err.style.display = 'block';
+  }
+  function clearError(card) {
+    card.style.border = '';
+    var err = card.querySelector('.field-error');
+    if (err) err.style.display = 'none';
+  }
+
+  // Validation on submit
+  var form = document.querySelector('form');
+  if (form) {
+    form.addEventListener('submit', function(e) {
+      var firstInvalid = null;
+      var messages = [];
+
+      // Validate each question card
+      document.querySelectorAll('[id^="pergunta_"]').forEach(function(card) {
+        clearError(card);
+        var id = card.id.replace('pergunta_', '');
+        var obrigatoria = card.querySelector('.text-danger') !== null;
+        if (!obrigatoria) return;
+
+        // Skip hidden conditional questions
+        if (card.style.display === 'none') return;
+
+        // Grid questions
+        var gridTable = card.querySelector('.grid-table');
+        if (gridTable) {
+          var rows = gridTable.querySelectorAll('tbody tr');
+          var allSelected = true;
+          rows.forEach(function(row) {
+            if (!row.querySelector('input[type="radio"]:checked')) allSelected = false;
+          });
+          if (!allSelected) {
+            showError(card, 'Selecione uma opção para cada linha.');
+            if (!firstInvalid) firstInvalid = card;
+          }
+          return;
+        }
+
+        // Radio buttons (multipla_escolha / escala)
+        var radios = card.querySelectorAll('input[type="radio"]');
+        if (radios.length > 0) {
+          var name = radios[0].name;
+          var checked = document.querySelector('input[name="' + name + '"]:checked');
+          if (!checked) {
+            showError(card, 'Selecione uma opção.');
+            if (!firstInvalid) firstInvalid = card;
+          }
+          return;
+        }
+
+        // Text / textarea
+        var input = card.querySelector('input[type="text"], textarea');
+        if (input && obrigatoria) {
+          if (!input.value.trim()) {
+            showError(card, 'Este campo é obrigatório.');
+            if (!firstInvalid) firstInvalid = card;
+          }
+          return;
+        }
+      });
+
+      if (firstInvalid) {
+        e.preventDefault();
+        firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    });
+  }
+
+  // Clear errors on interaction
+  document.querySelectorAll('input[type="radio"]').forEach(function(radio) {
+    radio.addEventListener('change', function() {
+      var card = this.closest('[id^="pergunta_"]');
+      if (card) clearError(card);
+      // also clear grid error
+      var table = this.closest('.grid-table');
+      if (table) {
+        var errorDiv = document.getElementById('grid_error_' + table.dataset.perguntaId);
+        table.style.border = '';
+        if (errorDiv) errorDiv.style.display = 'none';
+      }
+    });
+  });
+  document.querySelectorAll('input[type="text"], textarea').forEach(function(input) {
+    input.addEventListener('input', function() {
+      var card = this.closest('[id^="pergunta_"]');
+      if (card) clearError(card);
+    });
+  });
+});
+</script>
 {% endblock %}
