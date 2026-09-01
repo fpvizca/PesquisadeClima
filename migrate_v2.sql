@@ -1,8 +1,11 @@
 -- ============================================
--- SCRIPT DE MIGRAÇÃO - v2
--- Adequa o banco existente às novas tabelas
--- Execute com cuidado em produção!
+-- SCRIPT DE MIGRAÇÃO v2 - CORRIGIDO
+-- Adequar banco existente ao novo schema
+-- Execute: sqlite3 clima.db < migrate_v2.sql
 -- ============================================
+
+PRAGMA foreign_keys = OFF;
+BEGIN TRANSACTION;
 
 -- 1. Criar tabela formularios
 CREATE TABLE IF NOT EXISTS formularios (
@@ -13,16 +16,11 @@ CREATE TABLE IF NOT EXISTS formularios (
     criado_em   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. Inserir formulário padrão (o que já existe nos dados)
 INSERT OR IGNORE INTO formularios (id, nome, descricao, ativo)
-VALUES (1, 'Pesquisa de Clima Vizca 2025', 'Formulário completo da pesquisa de clima organizacional.', 1);
+VALUES (1, 'Pesquisa de Clima Vizca 2025', 'Formulário completo da pesquisa de clima.', 1);
 
--- 3. Adicionar formulario_id em secoes (se não existir)
--- SQLite não suporta ADD COLUMN IF NOT EXISTS, então usar try/catch via aplicação
--- Ou verificar antes:
--- PRAGMA table_info(secoes) para ver se a coluna já existe
-
-CREATE TABLE IF NOT EXISTS secoes_nova (
+-- 2. secoes: adicionar formulario_id
+CREATE TABLE secoes_new (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     formulario_id   INTEGER NOT NULL DEFAULT 1,
     nome            TEXT NOT NULL,
@@ -31,21 +29,14 @@ CREATE TABLE IF NOT EXISTS secoes_nova (
     ativo           INTEGER NOT NULL DEFAULT 1,
     FOREIGN KEY (formulario_id) REFERENCES formularios(id) ON DELETE CASCADE
 );
-
--- Copiar dados existentes
-INSERT OR IGNORE INTO secoes_nova (id, formulario_id, nome, descricao, ordem, ativo)
+INSERT INTO secoes_new (id, formulario_id, nome, descricao, ordem, ativo)
 SELECT id, 1, nome, descricao, ordem, ativo FROM secoes;
-
--- Remover tabela antiga e renomear
-DROP TABLE IF EXISTS secoes;
-ALTER TABLE secoes_nova RENAME TO secoes;
-
--- Recriar índice
+DROP TABLE secoes;
+ALTER TABLE secoes_new RENAME TO secoes;
 CREATE INDEX IF NOT EXISTS idx_secoes_formulario ON secoes(formulario_id);
 
--- 4. Adicionar descricao em perguntas (se não existir)
--- Criar tabela临时 e copiar
-CREATE TABLE IF NOT EXISTS perguntas_nova (
+-- 3. perguntas: adicionar descricao
+CREATE TABLE perguntas_new (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     secao_id            INTEGER NOT NULL,
     codigo              TEXT NOT NULL,
@@ -62,17 +53,14 @@ CREATE TABLE IF NOT EXISTS perguntas_nova (
     ativo               INTEGER NOT NULL DEFAULT 1,
     FOREIGN KEY (secao_id) REFERENCES secoes(id) ON DELETE CASCADE
 );
-
-INSERT OR IGNORE INTO perguntas_nova (id, secao_id, codigo, texto, tipo, obrigatoria, opcoes, grid_rows, ordem, condicional, condicao_pergunta, condicao_valor, ativo)
+INSERT INTO perguntas_new (id, secao_id, codigo, texto, tipo, obrigatoria, opcoes, grid_rows, ordem, condicional, condicao_pergunta, condicao_valor, ativo)
 SELECT id, secao_id, codigo, texto, tipo, obrigatoria, opcoes, grid_rows, ordem, condicional, condicao_pergunta, condicao_valor, ativo FROM perguntas;
-
-DROP TABLE IF EXISTS perguntas;
-ALTER TABLE perguntas_nova RENAME TO perguntas;
-
+DROP TABLE perguntas;
+ALTER TABLE perguntas_new RENAME TO perguntas;
 CREATE INDEX IF NOT EXISTS idx_perguntas_secao ON perguntas(secao_id);
 
--- 5. Adicionar formulario_id, data_inicio, data_fim em ciclos
-CREATE TABLE IF NOT EXISTS ciclos_nova (
+-- 4. ciclos: adicionar formulario_id, data_inicio, data_fim
+CREATE TABLE ciclos_new (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     nome            TEXT NOT NULL,
     ano             INTEGER NOT NULL,
@@ -83,15 +71,13 @@ CREATE TABLE IF NOT EXISTS ciclos_nova (
     criado_em       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (formulario_id) REFERENCES formularios(id) ON DELETE SET NULL
 );
-
-INSERT OR IGNORE INTO ciclos_nova (id, nome, ano, formulario_id, data_inicio, data_fim, ativo, criado_em)
+INSERT INTO ciclos_new (id, nome, ano, formulario_id, data_inicio, data_fim, ativo, criado_em)
 SELECT id, nome, ano, 1, NULL, NULL, ativo, criado_em FROM ciclos;
+DROP TABLE ciclos;
+ALTER TABLE ciclos_new RENAME TO ciclos;
 
-DROP TABLE IF EXISTS ciclos;
-ALTER TABLE ciclos_nova RENAME TO ciclos;
-
--- 6. Adicionar usuario_id em respostas e mudar UNIQUE
-CREATE TABLE IF NOT EXISTS respostas_nova (
+-- 5. respostas: adicionar usuario_id e mudar UNIQUE
+CREATE TABLE respostas_new (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     ciclo_id        INTEGER NOT NULL,
     pergunta_id     INTEGER NOT NULL,
@@ -101,28 +87,36 @@ CREATE TABLE IF NOT EXISTS respostas_nova (
     respondido_em   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (ciclo_id) REFERENCES ciclos(id) ON DELETE CASCADE,
     FOREIGN KEY (pergunta_id) REFERENCES perguntas(id) ON DELETE CASCADE,
-    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
-    UNIQUE(ciclo_id, pergunta_id, usuario_id)
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
 );
-
-INSERT OR IGNORE INTO respostas_nova (id, ciclo_id, pergunta_id, valor, comentario, respondido_em)
+INSERT INTO respostas_new (id, ciclo_id, pergunta_id, valor, comentario, respondido_em)
 SELECT id, ciclo_id, pergunta_id, valor, comentario, respondido_em FROM respostas;
-
-DROP TABLE IF EXISTS respostas;
-ALTER TABLE respostas_nova RENAME TO respostas;
-
+DROP TABLE respostas;
+ALTER TABLE respostas_new RENAME TO respostas;
 CREATE INDEX IF NOT EXISTS idx_respostas_ciclo ON respostas(ciclo_id);
 CREATE INDEX IF NOT EXISTS idx_respostas_pergunta ON respostas(pergunta_id);
 
--- 7. Recriar tabela respondentes (se não existir)
+-- 6. respondentes: recriar se necessário
 CREATE TABLE IF NOT EXISTS respondentes (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    ciclo_id    INTEGER NOT NULL,
-    usuario_id  INTEGER NOT NULL,
-    respondido_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    ciclo_id        INTEGER NOT NULL,
+    usuario_id      INTEGER NOT NULL,
+    respondido_em   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(ciclo_id, usuario_id),
     FOREIGN KEY (ciclo_id) REFERENCES ciclos(id) ON DELETE CASCADE,
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
 );
 
--- FIM DA MIGRAÇÃO
+-- 7. Atualizar tipo das perguntas que perderam a configuração
+-- Se houver perguntas multipla_escolha sem opcoes, converter para texto
+UPDATE perguntas SET tipo = 'texto'
+WHERE tipo = 'multipla_escolha' AND (opcoes IS NULL OR opcoes = '');
+
+-- 8. Limpar dados duplicados se existirem
+-- Manter apenas a resposta mais recente por ciclo+pergunta+usuario
+DELETE FROM respostas WHERE id NOT IN (
+    SELECT MAX(id) FROM respostas GROUP BY ciclo_id, pergunta_id, usuario_id
+);
+
+COMMIT;
+PRAGMA foreign_keys = ON;
