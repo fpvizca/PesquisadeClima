@@ -13,7 +13,6 @@ def init_routes(app):
     @login_required
     def pesquisa():
         db = get_db()
-        usuario_id = session['usuario_id']
         ciclo = db.execute("SELECT * FROM ciclos WHERE ativo = 1 ORDER BY id DESC LIMIT 1").fetchone()
         if not ciclo:
             flash('Nenhum ciclo ativo encontrado.', 'warning')
@@ -22,13 +21,7 @@ def init_routes(app):
         cookie_name = f'clima_respondeu_{ciclo["id"]}'
         ja_respondeu_cookie = request.cookies.get(cookie_name)
 
-        # Check if user has any responses
-        tem_respostas = db.execute(
-            "SELECT COUNT(*) as c FROM respostas WHERE ciclo_id = ? AND usuario_id = ?",
-            (ciclo['id'], usuario_id)
-        ).fetchone()['c']
-
-        ja_respondeu = tem_respostas > 0 or ja_respondeu_cookie
+        ja_respondeu = ja_respondeu_cookie == '1'
 
         # Fetch sections linked to the cycle's form
         if ciclo['formulario_id']:
@@ -57,7 +50,6 @@ def init_routes(app):
     @login_required
     def pesquisa_secao(secao_id):
         db = get_db()
-        usuario_id = session['usuario_id']
         ciclo = db.execute("SELECT * FROM ciclos WHERE ativo = 1 ORDER BY id DESC LIMIT 1").fetchone()
         if not ciclo:
             flash('Nenhum ciclo ativo encontrado.', 'warning')
@@ -87,14 +79,8 @@ def init_routes(app):
             (secao_id,)
         ).fetchall()
 
+        # Anonymous: no respostas_existentes (can't load previous answers without usuario_id)
         respostas_existentes = {}
-        for p in perguntas:
-            r = db.execute(
-                "SELECT valor, comentario FROM respostas WHERE ciclo_id = ? AND pergunta_id = ? AND usuario_id = ?",
-                (ciclo['id'], p['id'], usuario_id)
-            ).fetchone()
-            if r:
-                respostas_existentes[p['id']] = {'valor': r['valor'], 'comentario': r['comentario']}
 
         if request.method == 'POST':
             for p in perguntas:
@@ -116,24 +102,17 @@ def init_routes(app):
 
                 if valor or comentario:
                     db.execute("""
-                        INSERT INTO respostas (ciclo_id, pergunta_id, usuario_id, valor, comentario)
-                        VALUES (?, ?, ?, ?, ?)
-                        ON CONFLICT(ciclo_id, pergunta_id, usuario_id)
-                        DO UPDATE SET valor = excluded.valor, comentario = excluded.comentario, respondido_em = CURRENT_TIMESTAMP
-                    """, (ciclo['id'], p['id'], usuario_id, valor if valor else None, comentario if comentario else None))
+                        INSERT INTO respostas (ciclo_id, pergunta_id, valor, comentario)
+                        VALUES (?, ?, ?, ?)
+                    """, (ciclo['id'], p['id'], valor if valor else None, comentario if comentario else None))
             db.commit()
 
             proximo_index = secao_index + 1
             if proximo_index < len(secoes):
                 return redirect(url_for('pesquisa_secao', secao_id=secoes[proximo_index]['id']))
             else:
-                db.execute(
-                    "INSERT OR IGNORE INTO respondentes (ciclo_id, usuario_id) VALUES (?, ?)",
-                    (ciclo['id'], usuario_id)
-                )
-                db.commit()
                 flash('Pesquisa respondida com sucesso!', 'success')
-                resp = make_response(redirect(url_for('minhas_respostas')))
+                resp = make_response(redirect(url_for('pesquisa')))
                 cookie_name = f'clima_respondeu_{ciclo["id"]}'
                 resp.set_cookie(cookie_name, '1', max_age=60*60*24*365)
                 return resp
@@ -154,62 +133,8 @@ def init_routes(app):
     @app.route('/minhas-respostas')
     @login_required
     def minhas_respostas():
-        db = get_db()
-        usuario_id = session['usuario_id']
-        ciclo = db.execute("SELECT * FROM ciclos WHERE ativo = 1 ORDER BY id DESC LIMIT 1").fetchone()
-        if not ciclo:
-            flash('Nenhum ciclo ativo encontrado.', 'warning')
-            return redirect(url_for('index'))
-
-        cookie_name = f'clima_respondeu_{ciclo["id"]}'
-        ja_respondeu_cookie = request.cookies.get(cookie_name)
-
-        # Check if user has any responses
-        tem_respostas = db.execute(
-            "SELECT COUNT(*) as c FROM respostas WHERE ciclo_id = ? AND usuario_id = ?",
-            (ciclo['id'], usuario_id)
-        ).fetchone()['c']
-
-        ja_respondeu = tem_respostas > 0 or ja_respondeu_cookie
-
-        # Fetch sections linked to the cycle's form
-        respostas_por_secao = []
-        if ja_respondeu:
-            if ciclo['formulario_id']:
-                secoes = db.execute(
-                    "SELECT * FROM secoes WHERE formulario_id = ? AND ativo = 1 ORDER BY ordem",
-                    (ciclo['formulario_id'],)
-                ).fetchall()
-            else:
-                secoes = db.execute("SELECT * FROM secoes WHERE ativo = 1 ORDER BY ordem").fetchall()
-            for secao in secoes:
-                perguntas = db.execute(
-                    "SELECT * FROM perguntas WHERE secao_id = ? AND ativo = 1 ORDER BY ordem",
-                    (secao['id'],)
-                ).fetchall()
-                respostas_secao = []
-                for p in perguntas:
-                    r = db.execute(
-                        "SELECT valor, comentario FROM respostas WHERE ciclo_id = ? AND pergunta_id = ? AND usuario_id = ?",
-                        (ciclo['id'], p['id'], usuario_id)
-                    ).fetchone()
-                    respostas_secao.append({
-                        'codigo': p['codigo'],
-                        'texto': p['texto'],
-                        'tipo': p['tipo'],
-                        'valor': r['valor'] if r and r['valor'] else None,
-                        'comentario': r['comentario'] if r else None
-                    })
-                respostas_por_secao.append({
-                    'nome': secao['nome'],
-                    'respostas': respostas_secao
-                })
-
-        return render_template('minhas_respostas.html',
-            ciclo=ciclo,
-            ja_respondeu=ja_respondeu,
-            respostas_por_secao=respostas_por_secao
-        )
+        flash('As respostas são anônimas e não podem ser visualizadas individualmente.', 'info')
+        return redirect(url_for('pesquisa'))
 
     @app.route('/admin/resultados')
     @login_required

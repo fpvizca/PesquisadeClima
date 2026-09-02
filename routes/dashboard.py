@@ -1,4 +1,4 @@
-from flask import render_template, redirect, url_for
+from flask import render_template, redirect, url_for, request
 from db import get_db
 from auth import usuario_logado, has_role
 
@@ -51,12 +51,9 @@ def init_routes(app):
                 (ciclo_atual['id'],)
             ).fetchone()['c']
 
-            # Check if user has responded
-            tem_respostas = db.execute(
-                "SELECT COUNT(*) as c FROM respostas WHERE ciclo_id = ? AND usuario_id = ?",
-                (ciclo_atual['id'], user['id'])
-            ).fetchone()['c']
-            ja_respondeu = tem_respostas > 0
+            # Anonymous: check cookie only
+            cookie_name = f'clima_respondeu_{ciclo_atual["id"]}'
+            ja_respondeu = request.cookies.get(cookie_name) == '1'
 
         return render_template('dashboard.html', user=user,
             ciclo_atual=ciclo_atual,

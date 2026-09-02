@@ -125,9 +125,6 @@
   <a href="{{ url_for('pesquisa') }}" class="nav-item {% if request.endpoint in ('pesquisa', 'pesquisa_secao') %}active{% endif %}">
     <i class="bi bi-pencil-square"></i> Responder Pesquisa
   </a>
-  <a href="{{ url_for('minhas_respostas') }}" class="nav-item {% if request.endpoint == 'minhas_respostas' %}active{% endif %}">
-    <i class="bi bi-eye"></i> Minhas Respostas
-  </a>
   {% if is_admin %}
   <div class="nav-section">Painel do Administrador</div>
   <a href="{{ url_for('admin_ciclos') }}" class="nav-item {% if request.endpoint in ('admin_ciclos', 'admin_ciclo_novo', 'admin_ciclo_editar') %}active{% endif %}">
@@ -156,7 +153,6 @@
     <h4>
       {% if request.endpoint == 'dashboard' %}Dashboard
       {% elif request.endpoint in ('pesquisa', 'pesquisa_secao') %}Pesquisa de Clima
-      {% elif request.endpoint == 'minhas_respostas' %}Minhas Respostas
       {% elif request.endpoint in ('admin_formulario_estrutura', 'admin_secao_nova', 'admin_secao_editar', 'admin_pergunta_nova', 'admin_pergunta_editar') %}Gerenciar Formulário
       {% elif request.endpoint == 'admin_resultados' %}Resultados Gerais
       {% elif request.endpoint == 'admin_analise' %}Análise de Resultados
