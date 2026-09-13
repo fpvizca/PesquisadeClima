@@ -38,12 +38,12 @@
       <span class="badge bg-secondary ms-2">{{ item.perguntas|length }} perguntas</span>
     </div>
     <div class="d-flex gap-1">
-      <form method="POST" action="{{ url_for('admin_secao_mover', secao_id=item.secao.id, direcao=-1) }}" class="d-inline">
+      <form method="POST" action="{{ url_for('admin_secao_mover', secao_id=item.secao.id, direcao='cima') }}" class="d-inline">
         <button type="submit" class="btn btn-sm btn-outline-secondary" title="Mover para cima" {% if loop.first %}disabled{% endif %}>
           <i class="bi bi-arrow-up"></i>
         </button>
       </form>
-      <form method="POST" action="{{ url_for('admin_secao_mover', secao_id=item.secao.id, direcao=1) }}" class="d-inline">
+      <form method="POST" action="{{ url_for('admin_secao_mover', secao_id=item.secao.id, direcao='baixo') }}" class="d-inline">
         <button type="submit" class="btn btn-sm btn-outline-secondary" title="Mover para baixo" {% if loop.last %}disabled{% endif %}>
           <i class="bi bi-arrow-down"></i>
         </button>
@@ -100,12 +100,12 @@
           </td>
           <td class="text-center">
             <div class="btn-group btn-group-sm">
-              <form method="POST" action="{{ url_for('admin_pergunta_mover', pergunta_id=p.id, direcao=-1) }}" class="d-inline">
+              <form method="POST" action="{{ url_for('admin_pergunta_mover', pergunta_id=p.id, direcao='cima') }}" class="d-inline">
                 <button type="submit" class="btn btn-outline-secondary" title="Mover para cima" {% if loop.first %}disabled{% endif %}>
                   <i class="bi bi-arrow-up"></i>
                 </button>
               </form>
-              <form method="POST" action="{{ url_for('admin_pergunta_mover', pergunta_id=p.id, direcao=1) }}" class="d-inline">
+              <form method="POST" action="{{ url_for('admin_pergunta_mover', pergunta_id=p.id, direcao='baixo') }}" class="d-inline">
                 <button type="submit" class="btn btn-outline-secondary" title="Mover para baixo" {% if loop.last %}disabled{% endif %}>
                   <i class="bi bi-arrow-down"></i>
                 </button>

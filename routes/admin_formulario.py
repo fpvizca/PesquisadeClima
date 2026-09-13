@@ -147,7 +147,7 @@ def init_routes(app):
         flash('Seção excluída com sucesso!', 'success')
         return redirect(url_for('admin_formulario_estrutura', formulario_id=secao['formulario_id']))
 
-    @app.route('/admin/formulario/secao/<int:secao_id>/mover/<int:direcao>', methods=['POST'])
+    @app.route('/admin/formulario/secao/<int:secao_id>/mover/<direcao>', methods=['POST'])
     @login_required
     def admin_secao_mover(secao_id, direcao):
         if not has_role(session['usuario_id'], 'admin'):
@@ -160,21 +160,19 @@ def init_routes(app):
             flash('Seção não encontrada.', 'danger')
             return redirect(url_for('admin_formularios'))
 
-        # Find neighbor in the direction (direcao: -1=up, 1=down)
+        delta = -1 if direcao == 'cima' else 1
         vizinha = db.execute(
             "SELECT id, ordem FROM secoes WHERE formulario_id = ? AND ativo = 1 AND ordem = ? LIMIT 1",
-            (secao['formulario_id'], secao['ordem'] + direcao)
+            (secao['formulario_id'], secao['ordem'] + delta)
         ).fetchone()
 
         if not vizinha:
             flash('Não é possível mover nesta direção.', 'warning')
             return redirect(url_for('admin_formulario_estrutura', formulario_id=secao['formulario_id']))
 
-        # Swap ordem
         db.execute("UPDATE secoes SET ordem = ? WHERE id = ?", (vizinha['ordem'], secao_id))
         db.execute("UPDATE secoes SET ordem = ? WHERE id = ?", (secao['ordem'], vizinha['id']))
 
-        # Renumber all questions in the form globally
         _renumerar_perguntasformulario(db, secao['formulario_id'])
 
         db.commit()
@@ -321,7 +319,7 @@ def init_routes(app):
         flash('Pergunta excluída com sucesso!', 'success')
         return redirect(url_for('admin_formulario_estrutura', formulario_id=secao['formulario_id']))
 
-    @app.route('/admin/formulario/pergunta/<int:pergunta_id>/mover/<int:direcao>', methods=['POST'])
+    @app.route('/admin/formulario/pergunta/<int:pergunta_id>/mover/<direcao>', methods=['POST'])
     @login_required
     def admin_pergunta_mover(pergunta_id, direcao):
         if not has_role(session['usuario_id'], 'admin'):
@@ -337,21 +335,19 @@ def init_routes(app):
         secao = db.execute("SELECT formulario_id FROM secoes WHERE id = ?", (pergunta['secao_id'],)).fetchone()
         formulario_id = secao['formulario_id'] if secao else 1
 
-        # Find neighbor in the direction (direcao: -1=up, 1=down)
+        delta = -1 if direcao == 'cima' else 1
         vizinha = db.execute(
             "SELECT id, ordem FROM perguntas WHERE secao_id = ? AND ativo = 1 AND ordem = ? LIMIT 1",
-            (pergunta['secao_id'], pergunta['ordem'] + direcao)
+            (pergunta['secao_id'], pergunta['ordem'] + delta)
         ).fetchone()
 
         if not vizinha:
             flash('Não é possível mover nesta direção.', 'warning')
             return redirect(url_for('admin_formulario_estrutura', formulario_id=formulario_id))
 
-        # Swap ordem
         db.execute("UPDATE perguntas SET ordem = ? WHERE id = ?", (vizinha['ordem'], pergunta_id))
         db.execute("UPDATE perguntas SET ordem = ? WHERE id = ?", (pergunta['ordem'], vizinha['id']))
 
-        # Renumber all questions in the form globally
         _renumerar_perguntasformulario(db, formulario_id)
 
         db.commit()
