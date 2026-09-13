@@ -119,6 +119,15 @@ def init_routes(app):
         secao = db.execute("SELECT formulario_id FROM secoes WHERE id = ?", (secao_id,)).fetchone()
         db.execute("UPDATE secoes SET ativo = 0 WHERE id = ?", (secao_id,))
         db.execute("UPDATE perguntas SET ativo = 0 WHERE secao_id = ?", (secao_id,))
+
+        # Renumber remaining active sections in the form
+        ativas = db.execute(
+            "SELECT id FROM secoes WHERE formulario_id = ? AND ativo = 1 ORDER BY ordem",
+            (secao['formulario_id'],)
+        ).fetchall()
+        for i, s in enumerate(ativas, start=1):
+            db.execute("UPDATE secoes SET ordem = ? WHERE id = ?", (i, s['id']))
+
         db.commit()
         flash('Seção excluída com sucesso!', 'success')
         return redirect(url_for('admin_formulario_estrutura', formulario_id=secao['formulario_id']))
@@ -256,6 +265,15 @@ def init_routes(app):
         pergunta = db.execute("SELECT secao_id FROM perguntas WHERE id = ?", (pergunta_id,)).fetchone()
         secao = db.execute("SELECT formulario_id FROM secoes WHERE id = ?", (pergunta['secao_id'],)).fetchone()
         db.execute("UPDATE perguntas SET ativo = 0 WHERE id = ?", (pergunta_id,))
+
+        # Renumber remaining active questions in the section
+        ativas = db.execute(
+            "SELECT id FROM perguntas WHERE secao_id = ? AND ativo = 1 ORDER BY ordem",
+            (pergunta['secao_id'],)
+        ).fetchall()
+        for i, p in enumerate(ativas, start=1):
+            db.execute("UPDATE perguntas SET ordem = ? WHERE id = ?", (i, p['id']))
+
         db.commit()
         flash('Pergunta excluída com sucesso!', 'success')
         return redirect(url_for('admin_formulario_estrutura', formulario_id=secao['formulario_id']))
