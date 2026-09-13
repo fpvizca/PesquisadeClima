@@ -75,11 +75,14 @@ CREATE TABLE IF NOT EXISTS respostas (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     ciclo_id        INTEGER NOT NULL,
     pergunta_id     INTEGER NOT NULL,
+    usuario_id      INTEGER,
     valor           TEXT,
     comentario      TEXT,
     respondido_em   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (ciclo_id) REFERENCES ciclos(id) ON DELETE CASCADE,
-    FOREIGN KEY (pergunta_id) REFERENCES perguntas(id) ON DELETE CASCADE
+    FOREIGN KEY (pergunta_id) REFERENCES perguntas(id) ON DELETE CASCADE,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    UNIQUE(ciclo_id, pergunta_id, usuario_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_usuario_roles_usuario ON usuario_roles(usuario_id);

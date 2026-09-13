@@ -11,9 +11,15 @@
 
     {% if ja_respondeu %}
       <div class="alert alert-success mt-4">
-        <i class="bi bi-check-circle"></i> Você já respondeu esta pesquisa. Obrigado!
+        <i class="bi bi-check-circle"></i> Suas respostas são <strong>anônimas</strong> e foram registradas com sucesso.
       </div>
-      <p class="text-muted mt-3">Suas respostas são <strong>anônimas</strong> e foram registradas com sucesso.</p>
+      <p class="mt-3">
+        Se quiser consultar ou editar suas respostas, clique
+        <a href="{{ url_for('pesquisa_secao', secao_id=secoes[0].id) }}">
+          <i class="bi bi-pencil"></i> aqui
+        </a>.
+        <br><small class="text-muted">Após o encerramento deste ciclo, esta opção será desativada.</small>
+      </p>
     {% else %}
       <p class="mt-4">Esta pesquisa contém <strong>{{ total_perguntas }}</strong> perguntas divididas em <strong>{{ secoes|length }}</strong> seções.</p>
       <p class="text-muted">Suas respostas são anônimas e contribuem para melhorar o ambiente de trabalho na Vizca.</p>

@@ -79,8 +79,16 @@ def init_routes(app):
             (secao_id,)
         ).fetchall()
 
-        # Anonymous: no respostas_existentes (can't load previous answers without usuario_id)
+        # Load existing answers for this user (for editing)
+        usuario_id = session['usuario_id']
         respostas_existentes = {}
+        for p in perguntas:
+            r = db.execute(
+                "SELECT valor, comentario FROM respostas WHERE ciclo_id = ? AND pergunta_id = ? AND usuario_id = ?",
+                (ciclo['id'], p['id'], usuario_id)
+            ).fetchone()
+            if r:
+                respostas_existentes[p['id']] = {'valor': r['valor'], 'comentario': r['comentario']}
 
         if request.method == 'POST':
             for p in perguntas:
@@ -102,9 +110,11 @@ def init_routes(app):
 
                 if valor or comentario:
                     db.execute("""
-                        INSERT INTO respostas (ciclo_id, pergunta_id, valor, comentario)
-                        VALUES (?, ?, ?, ?)
-                    """, (ciclo['id'], p['id'], valor if valor else None, comentario if comentario else None))
+                        INSERT INTO respostas (ciclo_id, pergunta_id, usuario_id, valor, comentario)
+                        VALUES (?, ?, ?, ?, ?)
+                        ON CONFLICT(ciclo_id, pergunta_id, usuario_id)
+                        DO UPDATE SET valor = excluded.valor, comentario = excluded.comentario, respondido_em = CURRENT_TIMESTAMP
+                    """, (ciclo['id'], p['id'], usuario_id, valor if valor else None, comentario if comentario else None))
             db.commit()
 
             proximo_index = secao_index + 1
@@ -133,8 +143,55 @@ def init_routes(app):
     @app.route('/minhas-respostas')
     @login_required
     def minhas_respostas():
-        flash('As respostas são anônimas e não podem ser visualizadas individualmente.', 'info')
-        return redirect(url_for('pesquisa'))
+        db = get_db()
+        usuario_id = session['usuario_id']
+        ciclo = db.execute("SELECT * FROM ciclos WHERE ativo = 1 ORDER BY id DESC LIMIT 1").fetchone()
+        if not ciclo:
+            flash('Nenhum ciclo ativo encontrado.', 'warning')
+            return redirect(url_for('index'))
+
+        cookie_name = f'clima_respondeu_{ciclo["id"]}'
+        ja_respondeu_cookie = request.cookies.get(cookie_name)
+        ja_respondeu = ja_respondeu_cookie == '1'
+
+        # Fetch sections linked to the cycle's form
+        respostas_por_secao = []
+        if ja_respondeu:
+            if ciclo['formulario_id']:
+                secoes = db.execute(
+                    "SELECT * FROM secoes WHERE formulario_id = ? AND ativo = 1 ORDER BY ordem",
+                    (ciclo['formulario_id'],)
+                ).fetchall()
+            else:
+                secoes = db.execute("SELECT * FROM secoes WHERE ativo = 1 ORDER BY ordem").fetchall()
+            for secao in secoes:
+                perguntas = db.execute(
+                    "SELECT * FROM perguntas WHERE secao_id = ? AND ativo = 1 ORDER BY ordem",
+                    (secao['id'],)
+                ).fetchall()
+                respostas_secao = []
+                for p in perguntas:
+                    r = db.execute(
+                        "SELECT valor, comentario FROM respostas WHERE ciclo_id = ? AND pergunta_id = ? AND usuario_id = ?",
+                        (ciclo['id'], p['id'], usuario_id)
+                    ).fetchone()
+                    respostas_secao.append({
+                        'codigo': p['codigo'],
+                        'texto': p['texto'],
+                        'tipo': p['tipo'],
+                        'valor': r['valor'] if r and r['valor'] else None,
+                        'comentario': r['comentario'] if r else None
+                    })
+                respostas_por_secao.append({
+                    'nome': secao['nome'],
+                    'respostas': respostas_secao
+                })
+
+        return render_template('minhas_respostas.html',
+            ciclo=ciclo,
+            ja_respondeu=ja_respondeu,
+            respostas_por_secao=respostas_por_secao
+        )
 
     @app.route('/admin/resultados')
     @login_required
