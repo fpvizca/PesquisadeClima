@@ -1,1 +1,1 @@
-ALTER TABLE formularios ADD COLUMN texto_abertura TEXT;
+ALTER TABLE ciclos ADD COLUMN texto_abertura TEXT;

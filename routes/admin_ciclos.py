@@ -38,6 +38,7 @@ def init_routes(app):
             formulario_id = request.form.get('formulario_id', type=int)
             data_inicio = request.form.get('data_inicio', '').strip()
             data_fim = request.form.get('data_fim', '').strip()
+            texto_abertura = request.form.get('texto_abertura', '').strip()
             ativo = 1 if request.form.get('ativo') else 0
 
             if not nome or not ano:
@@ -49,8 +50,8 @@ def init_routes(app):
                 db.execute("UPDATE ciclos SET ativo = 0")
 
             db.execute(
-                "INSERT INTO ciclos (nome, ano, formulario_id, data_inicio, data_fim, ativo) VALUES (?, ?, ?, ?, ?, ?)",
-                (nome, int(ano), formulario_id, data_inicio or None, data_fim or None, ativo)
+                "INSERT INTO ciclos (nome, ano, formulario_id, data_inicio, data_fim, texto_abertura, ativo) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (nome, int(ano), formulario_id, data_inicio or None, data_fim or None, texto_abertura or None, ativo)
             )
             db.commit()
             flash('Ciclo criado com sucesso!', 'success')
@@ -79,6 +80,7 @@ def init_routes(app):
             formulario_id = request.form.get('formulario_id', type=int)
             data_inicio = request.form.get('data_inicio', '').strip()
             data_fim = request.form.get('data_fim', '').strip()
+            texto_abertura = request.form.get('texto_abertura', '').strip()
             ativo = 1 if request.form.get('ativo') else 0
 
             if not nome or not ano:
@@ -90,8 +92,8 @@ def init_routes(app):
                 db.execute("UPDATE ciclos SET ativo = 0 WHERE id != ?", (ciclo_id,))
 
             db.execute(
-                "UPDATE ciclos SET nome = ?, ano = ?, formulario_id = ?, data_inicio = ?, data_fim = ?, ativo = ? WHERE id = ?",
-                (nome, int(ano), formulario_id, data_inicio or None, data_fim or None, ativo, ciclo_id)
+                "UPDATE ciclos SET nome = ?, ano = ?, formulario_id = ?, data_inicio = ?, data_fim = ?, texto_abertura = ?, ativo = ? WHERE id = ?",
+                (nome, int(ano), formulario_id, data_inicio or None, data_fim or None, texto_abertura or None, ativo, ciclo_id)
             )
             db.commit()
             flash('Ciclo atualizado com sucesso!', 'success')

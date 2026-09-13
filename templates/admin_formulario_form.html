@@ -24,13 +24,6 @@
                       placeholder="Descrição opcional do formulário">{{ formulario.descricao if formulario else '' }}</textarea>
           </div>
 
-          <div class="mb-3">
-            <label for="texto_abertura" class="form-label">Texto de Abertura da Pesquisa</label>
-            <textarea class="form-control" id="texto_abertura" name="texto_abertura" rows="3"
-                      placeholder="Texto exibido ao iniciar a pesquisa">{{ formulario.texto_abertura if formulario and formulario.texto_abertura else '' }}</textarea>
-            <small class="text-muted">Texto que aparece antes do botão "Iniciar Pesquisa". Se vazio, usa o padrão.</small>
-          </div>
-
           {% if formulario %}
           <div class="mb-4">
             <div class="form-check form-switch">

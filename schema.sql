@@ -27,7 +27,6 @@ CREATE TABLE IF NOT EXISTS formularios (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     nome            TEXT NOT NULL,
     descricao       TEXT,
-    texto_abertura  TEXT,
     ativo           INTEGER NOT NULL DEFAULT 1,
     criado_em       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -67,6 +66,7 @@ CREATE TABLE IF NOT EXISTS ciclos (
     formulario_id   INTEGER,
     data_inicio     TEXT,
     data_fim        TEXT,
+    texto_abertura  TEXT,
     ativo           INTEGER NOT NULL DEFAULT 1,
     criado_em       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (formulario_id) REFERENCES formularios(id) ON DELETE SET NULL
