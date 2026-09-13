@@ -139,6 +139,13 @@
   <a href="{{ url_for('admin_analise') }}" class="nav-item {% if request.endpoint == 'admin_analise' %}active{% endif %}">
     <i class="bi bi-graph-up"></i> Análise de Resultados
   </a>
+  <div class="nav-section">Conta</div>
+  <a href="{{ url_for('admin_trocar_senha') }}" class="nav-item {% if request.endpoint == 'admin_trocar_senha' %}active{% endif %}">
+    <i class="bi bi-key"></i> Trocar Senha
+  </a>
+  <a href="{{ url_for('admin_usuarios') }}" class="nav-item {% if request.endpoint in ('admin_usuarios', 'admin_reset_senha') %}active{% endif %}">
+    <i class="bi bi-people"></i> Gerenciar Usuários
+  </a>
   {% endif %}
   <div style="flex:1"></div>
   <div style="border-top:1px solid rgba(255,255,255,0.1); padding:1rem 1.5rem;">
