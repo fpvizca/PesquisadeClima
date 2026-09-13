@@ -212,9 +212,18 @@ def init_routes(app):
             flash('Acesso negado.', 'danger')
             return redirect(url_for('pesquisa'))
 
-        ciclo = db.execute("SELECT * FROM ciclos WHERE ativo = 1 ORDER BY id DESC LIMIT 1").fetchone()
+        # Get all cycles for the dropdown
+        ciclos = db.execute("SELECT * FROM ciclos ORDER BY ano DESC, id DESC").fetchall()
+
+        # Select cycle: use query param or default to active
+        ciclo_id = request.args.get('ciclo_id', type=int)
+        if ciclo_id:
+            ciclo = db.execute("SELECT * FROM ciclos WHERE id = ?", (ciclo_id,)).fetchone()
+        else:
+            ciclo = db.execute("SELECT * FROM ciclos WHERE ativo = 1 ORDER BY id DESC LIMIT 1").fetchone()
+
         if not ciclo:
-            flash('Nenhum ciclo ativo encontrado.', 'warning')
+            flash('Nenhum ciclo encontrado.', 'warning')
             return redirect(url_for('index'))
 
         # Fetch sections linked to the cycle's form
@@ -274,6 +283,7 @@ def init_routes(app):
 
         return render_template('admin_resultados.html',
             ciclo=ciclo,
+            ciclos=ciclos,
             dados=dados,
             total_habilitados=total_habilitados,
             total_respostas=total_respostas
@@ -442,9 +452,14 @@ Seja objetivo, use dados numéricos e escreva em português brasileiro profissio
             flash('Acesso negado.', 'danger')
             return redirect(url_for('pesquisa'))
 
-        ciclo = db.execute("SELECT * FROM ciclos WHERE ativo = 1 ORDER BY id DESC LIMIT 1").fetchone()
+        ciclo_id = request.args.get('ciclo_id', type=int)
+        if ciclo_id:
+            ciclo = db.execute("SELECT * FROM ciclos WHERE id = ?", (ciclo_id,)).fetchone()
+        else:
+            ciclo = db.execute("SELECT * FROM ciclos WHERE ativo = 1 ORDER BY id DESC LIMIT 1").fetchone()
+
         if not ciclo:
-            flash('Nenhum ciclo ativo encontrado.', 'warning')
+            flash('Nenhum ciclo encontrado.', 'warning')
             return redirect(url_for('index'))
 
         wb = Workbook()
@@ -696,7 +711,12 @@ Seja objetivo, use dados numéricos e escreva em português brasileiro profissio
             flash('Acesso negado.', 'danger')
             return redirect(url_for('pesquisa'))
 
-        ciclo = db.execute("SELECT * FROM ciclos WHERE ativo = 1 ORDER BY id DESC LIMIT 1").fetchone()
+        ciclo_id = request.args.get('ciclo_id', type=int)
+        if ciclo_id:
+            ciclo = db.execute("SELECT * FROM ciclos WHERE id = ?", (ciclo_id,)).fetchone()
+        else:
+            ciclo = db.execute("SELECT * FROM ciclos WHERE ativo = 1 ORDER BY id DESC LIMIT 1").fetchone()
+
         if not ciclo:
             flash('Nenhum ciclo ativo encontrado.', 'warning')
             return redirect(url_for('index'))
