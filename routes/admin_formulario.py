@@ -104,6 +104,9 @@ def init_routes(app):
             )
             db.commit()
             flash('Seção atualizada com sucesso!', 'success')
+            acao = request.form.get('acao', 'salvar')
+            if acao == 'salvar_continuar':
+                return redirect(url_for('admin_secao_editar', secao_id=secao_id))
             return redirect(url_for('admin_formulario_estrutura', formulario_id=secao['formulario_id']))
 
         return render_template('admin_secao_form.html', secao=secao, max_ordem=0, formulario_id=secao['formulario_id'])
@@ -241,6 +244,9 @@ def init_routes(app):
             )
             db.commit()
             flash('Pergunta atualizada com sucesso!', 'success')
+            acao = request.form.get('acao', 'salvar')
+            if acao == 'salvar_continuar':
+                return redirect(url_for('admin_pergunta_editar', pergunta_id=pergunta_id))
             return redirect(url_for('admin_formulario_estrutura', formulario_id=formulario_id))
 
         return render_template('admin_pergunta_form.html', pergunta=pergunta, secoes=secoes, secao_id=pergunta['secao_id'], max_ordem=0, formulario_id=formulario_id)
