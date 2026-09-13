@@ -5,6 +5,21 @@ from db import get_db
 
 def init_routes(app):
 
+    def _renumerar_perguntasformulario(db, formulario_id):
+        secoes = db.execute(
+            "SELECT id FROM secoes WHERE formulario_id = ? AND ativo = 1 ORDER BY ordem",
+            (formulario_id,)
+        ).fetchall()
+        contador = 1
+        for s in secoes:
+            ativas = db.execute(
+                "SELECT id FROM perguntas WHERE secao_id = ? AND ativo = 1 ORDER BY ordem",
+                (s['id'],)
+            ).fetchall()
+            for p in ativas:
+                db.execute("UPDATE perguntas SET codigo = ? WHERE id = ?", (f'Q{contador}', p['id']))
+                contador += 1
+
     def admin_required(f):
         from functools import wraps
         @wraps(f)
@@ -159,6 +174,9 @@ def init_routes(app):
         db.execute("UPDATE secoes SET ordem = ? WHERE id = ?", (vizinha['ordem'], secao_id))
         db.execute("UPDATE secoes SET ordem = ? WHERE id = ?", (secao['ordem'], vizinha['id']))
 
+        # Renumber all questions in the form globally
+        _renumerar_perguntasformulario(db, secao['formulario_id'])
+
         db.commit()
         return redirect(url_for('admin_formulario_estrutura', formulario_id=secao['formulario_id']))
 
@@ -296,13 +314,8 @@ def init_routes(app):
         secao = db.execute("SELECT formulario_id FROM secoes WHERE id = ?", (pergunta['secao_id'],)).fetchone()
         db.execute("UPDATE perguntas SET ativo = 0 WHERE id = ?", (pergunta_id,))
 
-        # Renumber ordem and codigo for remaining active questions in the section
-        ativas = db.execute(
-            "SELECT id FROM perguntas WHERE secao_id = ? AND ativo = 1 ORDER BY ordem",
-            (pergunta['secao_id'],)
-        ).fetchall()
-        for i, p in enumerate(ativas, start=1):
-            db.execute("UPDATE perguntas SET ordem = ?, codigo = ? WHERE id = ?", (i, f'Q{i}', p['id']))
+        # Renumber all questions in the form globally
+        _renumerar_perguntasformulario(db, secao['formulario_id'])
 
         db.commit()
         flash('Pergunta excluída com sucesso!', 'success')
@@ -334,17 +347,12 @@ def init_routes(app):
             flash('Não é possível mover nesta direção.', 'warning')
             return redirect(url_for('admin_formulario_estrutura', formulario_id=formulario_id))
 
-        # Swap ordem and codigo
+        # Swap ordem
         db.execute("UPDATE perguntas SET ordem = ? WHERE id = ?", (vizinha['ordem'], pergunta_id))
         db.execute("UPDATE perguntas SET ordem = ? WHERE id = ?", (pergunta['ordem'], vizinha['id']))
 
-        # Renumber codigo for all questions in the section
-        ativas = db.execute(
-            "SELECT id FROM perguntas WHERE secao_id = ? AND ativo = 1 ORDER BY ordem",
-            (pergunta['secao_id'],)
-        ).fetchall()
-        for i, p in enumerate(ativas, start=1):
-            db.execute("UPDATE perguntas SET codigo = ? WHERE id = ?", (f'Q{i}', p['id']))
+        # Renumber all questions in the form globally
+        _renumerar_perguntasformulario(db, formulario_id)
 
         db.commit()
         return redirect(url_for('admin_formulario_estrutura', formulario_id=formulario_id))
