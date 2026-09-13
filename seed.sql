@@ -67,7 +67,7 @@ INSERT OR IGNORE INTO perguntas (secao_id, codigo, texto, tipo, obrigatoria, con
 (2, 'Q8', 'Se você respondeu "DISCORDO TOTALMENTE" ou "DISCORDO" na afirmação anterior, nos conte o motivo:', 'paragrafo', 0, 1, 'Q7', 'Discordo|Discordo totalmente', 5);
 
 INSERT OR IGNORE INTO perguntas (secao_id, codigo, texto, tipo, obrigatoria, opcoes, condicional, condicao_pergunta, condicao_valor, ordem) VALUES
-(2, 'Q9', 'Se você respondeu "CONCORDO TOTALMENTE" ou "CONCORDO" na afirmação anterior, como você tem usufruído desse período de descanso?', 'multipla_escolha', 0, 'Tiro os dias de férias de forma ininterrupta (ex.: 30, 20 dias diretos), Tiro os dias de férias em dois períodos (ex.: 02 intervalos entre um determinado período de meses), Tiro os dias de férias de forma fracionada (vários dias ao longo do ano até finalizar o saldo de dias)', 1, 'Q7', 'Concordo totalmente|Concordo', 6);
+(2, 'Q9', 'Se você respondeu "CONCORDO TOTALMENTE" ou "CONCORDO" na afirmação anterior, como você tem usufruído desse período de descanso?', 'multipla_escolha', 0, 'Tiro os dias de férias de forma ininterrupta (ex.: 30 ou 20 dias diretos), Tiro os dias de férias em dois períodos (ex.: 02 intervalos entre um determinado período de meses), Tiro os dias de férias de forma fracionada (vários dias ao longo do ano até finalizar o saldo de dias)', 1, 'Q7', 'Concordo totalmente|Concordo', 6);
 
 -- ============================================
 -- PERGUNTAS - SEÇÃO 3: DIVERSIDADE E INCLUSÃO
