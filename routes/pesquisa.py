@@ -94,6 +94,8 @@ def init_routes(app):
                 respostas_existentes[p['id']] = {'valor': r['valor'], 'comentario': r['comentario']}
 
         if request.method == 'POST':
+            acao = request.form.get('acao', 'salvar_proximo')
+
             for p in perguntas:
                 valor = request.form.get(f'pergunta_{p["id"]}', '').strip()
                 comentario = request.form.get(f'comentario_{p["id"]}', '').strip()
@@ -107,7 +109,8 @@ def init_routes(app):
                         row_vals.append(f'{grid_rows[i]}: {rv}' if rv else f'{grid_rows[i]}:')
                     valor = ' | '.join(row_vals)
 
-                if p['obrigatoria'] and not valor:
+                # Only validate required on "Próxima Seção" / "Finalizar"
+                if acao == 'salvar_proximo' and p['obrigatoria'] and not valor:
                     flash(f'Por favor, responda: {p["texto"]}', 'danger')
                     return redirect(url_for('pesquisa_secao', secao_id=secao_id))
 
@@ -119,6 +122,10 @@ def init_routes(app):
                         DO UPDATE SET valor = excluded.valor, comentario = excluded.comentario, respondido_em = CURRENT_TIMESTAMP
                     """, (ciclo['id'], p['id'], usuario_id, valor if valor else None, comentario if comentario else None))
             db.commit()
+
+            if acao == 'salvar_parcial':
+                flash('Respostas salvas!', 'success')
+                return redirect(url_for('pesquisa_secao', secao_id=secao_id))
 
             proximo_index = secao_index + 1
             if proximo_index < len(secoes):

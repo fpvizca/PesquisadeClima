@@ -45,11 +45,22 @@ def init_routes(app):
 
         total_respostas = 0
         ja_respondeu = False
+        progresso = 0
         if ciclo_atual:
-            total_respostas = db.execute(
-                "SELECT COUNT(*) as c FROM respostas WHERE ciclo_id = ?",
-                (ciclo_atual['id'],)
-            ).fetchone()['c']
+            # Count user's answers for this cycle
+            if not is_admin:
+                total_respostas = db.execute(
+                    "SELECT COUNT(*) as c FROM respostas WHERE ciclo_id = ? AND usuario_id = ?",
+                    (ciclo_atual['id'], user['id'])
+                ).fetchone()['c']
+            else:
+                total_respostas = db.execute(
+                    "SELECT COUNT(*) as c FROM respostas WHERE ciclo_id = ?",
+                    (ciclo_atual['id'],)
+                ).fetchone()['c']
+
+            if total_perguntas > 0:
+                progresso = round((total_respostas / total_perguntas) * 100)
 
             # Anonymous: check cookie only
             cookie_name = f'clima_respondeu_{ciclo_atual["id"]}'
@@ -62,6 +73,7 @@ def init_routes(app):
             total_respostas=total_respostas,
             ja_respondeu=ja_respondeu,
             primeira_secao_id=primeira_secao_id,
+            progresso=progresso,
             is_admin=is_admin,
             is_gestor=is_gestor,
             is_diretoria=is_diretoria

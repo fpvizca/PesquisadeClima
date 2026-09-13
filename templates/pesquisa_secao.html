@@ -157,7 +157,11 @@
     </a>
     {% endif %}
 
-    <button type="submit" class="btn btn-primary">
+    <button type="submit" name="acao" value="salvar_parcial" class="btn btn-outline-secondary">
+      <i class="bi bi-save"></i> Salvar
+    </button>
+
+    <button type="submit" name="acao" value="salvar_proximo" class="btn btn-primary">
       {% if proxima_secao %}
         Próxima Seção <i class="bi bi-arrow-right"></i>
       {% else %}
