@@ -87,7 +87,7 @@ def init_routes(app):
         secao = db.execute("SELECT * FROM secoes WHERE id = ?", (secao_id,)).fetchone()
         if not secao:
             flash('Seção não encontrada.', 'danger')
-            return redirect(url_for('admin_formulario'))
+            return redirect(url_for('admin_formularios'))
 
         if request.method == 'POST':
             nome = request.form.get('nome', '').strip()

@@ -78,7 +78,7 @@
             <button type="submit" class="btn btn-primary">
               <i class="bi bi-check-lg"></i> {% if pergunta %}Salvar Alterações{% else %}Criar Pergunta{% endif %}
             </button>
-            <a href="{{ url_for('admin_formulario') }}" class="btn btn-outline-secondary">Cancelar</a>
+            <a href="{{ url_for('admin_formulario_estrutura', formulario_id=formulario_id) }}" class="btn btn-outline-secondary">Cancelar</a>
           </div>
         </form>
       </div>
