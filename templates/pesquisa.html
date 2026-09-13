@@ -1,13 +1,16 @@
 {% extends "base.html" %}
 {% block title %}Pesquisa de Clima Vizca{% endblock %}
-{% block titulo %}Pesquisa de Clima Vizca{% endblock %}
+{% block titulo %}{{ ciclo.nome }}{% endblock %}
 
 {% block content %}
 <div class="card">
   <div class="card-body text-center py-5">
     <img src="{{ url_for('static', filename='img/logo-cinza.png') }}" alt="Vizca" style="max-height: 80px;">
-    <h3 class="mt-3">{{ ciclo.titulo if ciclo.titulo else 'Pesquisa de Clima - ' ~ ciclo.ano }}</h3>
-    <p class="text-muted mt-2">{{ ciclo.nome }}</p>
+    <h3 class="mt-3">{{ ciclo.nome }}</h3>
+    <h5 class="text-muted">{{ ciclo.titulo if ciclo.titulo else 'Pesquisa de Clima - ' ~ ciclo.ano }}</h5>
+    {% if ciclo.texto_abertura %}
+    <p class="mt-3">{{ ciclo.texto_abertura|safe }}</p>
+    {% endif %}
 
     {% if ja_respondeu %}
       <div class="alert alert-success mt-4">
@@ -21,11 +24,9 @@
         <br><small class="text-muted">Após o encerramento deste ciclo, esta opção será desativada.</small>
       </p>
     {% else %}
-      {% if ciclo.texto_abertura %}
-        <p class="mt-4">{{ ciclo.texto_abertura|safe }}</p>
-      {% else %}
-        <p class="mt-4">Esta pesquisa contém <strong>{{ total_perguntas }}</strong> perguntas divididas em <strong>{{ secoes|length }}</strong> seções.</p>
-        <p class="text-muted">Suas respostas são anônimas e contribuem para melhorar o ambiente de trabalho na Vizca.</p>
+      {% if not ciclo.texto_abertura %}
+      <p class="mt-4">Esta pesquisa contém <strong>{{ total_perguntas }}</strong> perguntas divididas em <strong>{{ secoes|length }}</strong> seções.</p>
+      <p class="text-muted">Suas respostas são anônimas e contribuem para melhorar o ambiente de trabalho na Vizca.</p>
       {% endif %}
 
       <div class="mt-4">
