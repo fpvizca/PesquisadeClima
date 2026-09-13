@@ -132,6 +132,36 @@ def init_routes(app):
         flash('Seção excluída com sucesso!', 'success')
         return redirect(url_for('admin_formulario_estrutura', formulario_id=secao['formulario_id']))
 
+    @app.route('/admin/formulario/secao/<int:secao_id>/mover/<int:direcao>', methods=['POST'])
+    @login_required
+    def admin_secao_mover(secao_id, direcao):
+        if not has_role(session['usuario_id'], 'admin'):
+            flash('Acesso negado.', 'danger')
+            return redirect(url_for('pesquisa'))
+
+        db = get_db()
+        secao = db.execute("SELECT * FROM secoes WHERE id = ?", (secao_id,)).fetchone()
+        if not secao:
+            flash('Seção não encontrada.', 'danger')
+            return redirect(url_for('admin_formularios'))
+
+        # Find neighbor in the direction (direcao: -1=up, 1=down)
+        vizinha = db.execute(
+            "SELECT id, ordem FROM secoes WHERE formulario_id = ? AND ativo = 1 AND ordem = ? LIMIT 1",
+            (secao['formulario_id'], secao['ordem'] + direcao)
+        ).fetchone()
+
+        if not vizinha:
+            flash('Não é possível mover nesta direção.', 'warning')
+            return redirect(url_for('admin_formulario_estrutura', formulario_id=secao['formulario_id']))
+
+        # Swap ordem
+        db.execute("UPDATE secoes SET ordem = ? WHERE id = ?", (vizinha['ordem'], secao_id))
+        db.execute("UPDATE secoes SET ordem = ? WHERE id = ?", (secao['ordem'], vizinha['id']))
+
+        db.commit()
+        return redirect(url_for('admin_formulario_estrutura', formulario_id=secao['formulario_id']))
+
     @app.route('/admin/formulario/secao/<int:secao_id>/duplicar', methods=['POST'])
     @login_required
     def admin_secao_duplicar(secao_id):
@@ -266,17 +296,58 @@ def init_routes(app):
         secao = db.execute("SELECT formulario_id FROM secoes WHERE id = ?", (pergunta['secao_id'],)).fetchone()
         db.execute("UPDATE perguntas SET ativo = 0 WHERE id = ?", (pergunta_id,))
 
-        # Renumber remaining active questions in the section
+        # Renumber ordem and codigo for remaining active questions in the section
         ativas = db.execute(
             "SELECT id FROM perguntas WHERE secao_id = ? AND ativo = 1 ORDER BY ordem",
             (pergunta['secao_id'],)
         ).fetchall()
         for i, p in enumerate(ativas, start=1):
-            db.execute("UPDATE perguntas SET ordem = ? WHERE id = ?", (i, p['id']))
+            db.execute("UPDATE perguntas SET ordem = ?, codigo = ? WHERE id = ?", (i, f'Q{i}', p['id']))
 
         db.commit()
         flash('Pergunta excluída com sucesso!', 'success')
         return redirect(url_for('admin_formulario_estrutura', formulario_id=secao['formulario_id']))
+
+    @app.route('/admin/formulario/pergunta/<int:pergunta_id>/mover/<int:direcao>', methods=['POST'])
+    @login_required
+    def admin_pergunta_mover(pergunta_id, direcao):
+        if not has_role(session['usuario_id'], 'admin'):
+            flash('Acesso negado.', 'danger')
+            return redirect(url_for('pesquisa'))
+
+        db = get_db()
+        pergunta = db.execute("SELECT * FROM perguntas WHERE id = ?", (pergunta_id,)).fetchone()
+        if not pergunta:
+            flash('Pergunta não encontrada.', 'danger')
+            return redirect(url_for('admin_formularios'))
+
+        secao = db.execute("SELECT formulario_id FROM secoes WHERE id = ?", (pergunta['secao_id'],)).fetchone()
+        formulario_id = secao['formulario_id'] if secao else 1
+
+        # Find neighbor in the direction (direcao: -1=up, 1=down)
+        vizinha = db.execute(
+            "SELECT id, ordem FROM perguntas WHERE secao_id = ? AND ativo = 1 AND ordem = ? LIMIT 1",
+            (pergunta['secao_id'], pergunta['ordem'] + direcao)
+        ).fetchone()
+
+        if not vizinha:
+            flash('Não é possível mover nesta direção.', 'warning')
+            return redirect(url_for('admin_formulario_estrutura', formulario_id=formulario_id))
+
+        # Swap ordem and codigo
+        db.execute("UPDATE perguntas SET ordem = ? WHERE id = ?", (vizinha['ordem'], pergunta_id))
+        db.execute("UPDATE perguntas SET ordem = ? WHERE id = ?", (pergunta['ordem'], vizinha['id']))
+
+        # Renumber codigo for all questions in the section
+        ativas = db.execute(
+            "SELECT id FROM perguntas WHERE secao_id = ? AND ativo = 1 ORDER BY ordem",
+            (pergunta['secao_id'],)
+        ).fetchall()
+        for i, p in enumerate(ativas, start=1):
+            db.execute("UPDATE perguntas SET codigo = ? WHERE id = ?", (f'Q{i}', p['id']))
+
+        db.commit()
+        return redirect(url_for('admin_formulario_estrutura', formulario_id=formulario_id))
 
     @app.route('/admin/formulario/pergunta/<int:pergunta_id>/duplicar', methods=['POST'])
     @login_required
