@@ -28,14 +28,9 @@
           </div>
 
           <div class="d-flex gap-2">
-            <button type="submit" name="acao" value="salvar" class="btn btn-primary">
+            <button type="submit" class="btn btn-primary">
               <i class="bi bi-check-lg"></i> {% if secao %}Salvar Alterações{% else %}Criar Seção{% endif %}
             </button>
-            {% if secao %}
-            <button type="submit" name="acao" value="salvar_continuar" class="btn btn-outline-primary">
-              <i class="bi bi-check-lg"></i> Salvar e continuar editando
-            </button>
-            {% endif %}
             <a href="{{ url_for('admin_formulario_estrutura', formulario_id=formulario_id) }}" class="btn btn-outline-secondary">Cancelar</a>
           </div>
         </form>
