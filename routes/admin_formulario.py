@@ -174,6 +174,7 @@ def init_routes(app):
             secao_id = request.form.get('secao_id', type=int)
             codigo = request.form.get('codigo', '').strip()
             texto = request.form.get('texto', '').strip()
+            descricao = request.form.get('descricao', '').strip()
             tipo = request.form.get('tipo', 'escala')
             obrigatoria = 1 if request.form.get('obrigatoria') else 0
             opcoes = request.form.get('opcoes', '').strip()
@@ -185,9 +186,9 @@ def init_routes(app):
                 return redirect(url_for('admin_pergunta_nova', formulario_id=formulario_id))
 
             db.execute(
-                """INSERT INTO perguntas (secao_id, codigo, texto, tipo, obrigatoria, opcoes, grid_rows, ordem)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                (secao_id, codigo, texto, tipo, obrigatoria, opcoes if opcoes else None, grid_rows if grid_rows else None, ordem)
+                """INSERT INTO perguntas (secao_id, codigo, texto, descricao, tipo, obrigatoria, opcoes, grid_rows, ordem)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (secao_id, codigo, texto, descricao if descricao else None, tipo, obrigatoria, opcoes if opcoes else None, grid_rows if grid_rows else None, ordem)
             )
             db.commit()
             flash('Pergunta criada com sucesso!', 'success')
@@ -222,6 +223,7 @@ def init_routes(app):
             secao_id = request.form.get('secao_id', type=int)
             codigo = request.form.get('codigo', '').strip()
             texto = request.form.get('texto', '').strip()
+            descricao = request.form.get('descricao', '').strip()
             tipo = request.form.get('tipo', 'escala')
             obrigatoria = 1 if request.form.get('obrigatoria') else 0
             opcoes = request.form.get('opcoes', '').strip()
@@ -233,9 +235,9 @@ def init_routes(app):
                 return redirect(url_for('admin_pergunta_editar', pergunta_id=pergunta_id))
 
             db.execute(
-                """UPDATE perguntas SET secao_id = ?, codigo = ?, texto = ?, tipo = ?, obrigatoria = ?,
+                """UPDATE perguntas SET secao_id = ?, codigo = ?, texto = ?, descricao = ?, tipo = ?, obrigatoria = ?,
                    opcoes = ?, grid_rows = ?, ordem = ? WHERE id = ?""",
-                (secao_id, codigo, texto, tipo, obrigatoria, opcoes if opcoes else None, grid_rows if grid_rows else None, ordem, pergunta_id)
+                (secao_id, codigo, texto, descricao if descricao else None, tipo, obrigatoria, opcoes if opcoes else None, grid_rows if grid_rows else None, ordem, pergunta_id)
             )
             db.commit()
             flash('Pergunta atualizada com sucesso!', 'success')

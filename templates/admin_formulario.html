@@ -74,7 +74,12 @@
         {% for p in item.perguntas %}
         <tr>
           <td><span class="badge bg-light text-dark">{{ p.codigo }}</span></td>
-          <td>{{ p.texto[:100] }}{% if p.texto|length > 100 %}...{% endif %}</td>
+          <td>
+            {{ p.texto[:100] }}{% if p.texto|length > 100 %}...{% endif %}
+            {% if p.descricao %}
+            <br><small class="text-muted fst-italic">{{ p.descricao[:80] }}{% if p.descricao|length > 80 %}...{% endif %}</small>
+            {% endif %}
+          </td>
           <td><small class="text-muted">{{ p.tipo }}</small></td>
           <td class="text-center">
             {% if p.obrigatoria %}

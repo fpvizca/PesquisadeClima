@@ -35,6 +35,12 @@
             <textarea class="form-control" id="texto" name="texto" rows="3" required>{{ pergunta.texto if pergunta else '' }}</textarea>
           </div>
 
+          <div class="mb-3">
+            <label for="descricao" class="form-label">Descrição da Pergunta (opcional)</label>
+            <textarea class="form-control" id="descricao" name="descricao" rows="2">{{ pergunta.descricao if pergunta and pergunta.descricao else '' }}</textarea>
+            <small class="text-muted">Texto explicativo exibido abaixo do título da pergunta.</small>
+          </div>
+
           <div class="row mb-3">
             <div class="col-md-6">
               <label for="tipo" class="form-label">Tipo de Resposta</label>
