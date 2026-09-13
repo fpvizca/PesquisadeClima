@@ -61,6 +61,15 @@ def login():
         flash('Usuário desativado.', 'danger')
         return redirect(url_for('index'))
 
+    # Fallback local (quando API indisponível)
+    db = get_db()
+    user = db.execute("SELECT * FROM usuarios WHERE (email = ? OR login = ?) AND ativo = 1", (login_input, login_input)).fetchone()
+    if user and user['senha_hash'] == hash_senha(senha):
+        session.permanent = True
+        session['usuario_id'] = user['id']
+        flash('Login realizado com sucesso! (modo local)', 'warning')
+        return redirect(url_for('dashboard'))
+
     flash('Usuário ou senha inválidos.', 'danger')
     return redirect(url_for('index'))
 
