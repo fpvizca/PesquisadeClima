@@ -21,8 +21,12 @@
         <br><small class="text-muted">Após o encerramento deste ciclo, esta opção será desativada.</small>
       </p>
     {% else %}
-      <p class="mt-4">Esta pesquisa contém <strong>{{ total_perguntas }}</strong> perguntas divididas em <strong>{{ secoes|length }}</strong> seções.</p>
-      <p class="text-muted">Suas respostas são anônimas e contribuem para melhorar o ambiente de trabalho na Vizca.</p>
+      {% if formulario and formulario.texto_abertura %}
+        <p class="mt-4">{{ formulario.texto_abertura|safe }}</p>
+      {% else %}
+        <p class="mt-4">Esta pesquisa contém <strong>{{ total_perguntas }}</strong> perguntas divididas em <strong>{{ secoes|length }}</strong> seções.</p>
+        <p class="text-muted">Suas respostas são anônimas e contribuem para melhorar o ambiente de trabalho na Vizca.</p>
+      {% endif %}
 
       <div class="mt-4">
         {% for secao in secoes %}

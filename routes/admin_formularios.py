@@ -35,14 +35,15 @@ def init_routes(app):
         if request.method == 'POST':
             nome = request.form.get('nome', '').strip()
             descricao = request.form.get('descricao', '').strip()
+            texto_abertura = request.form.get('texto_abertura', '').strip()
 
             if not nome:
                 flash('Nome do formulário é obrigatório.', 'danger')
                 return redirect(url_for('admin_formulario_novo'))
 
             db.execute(
-                "INSERT INTO formularios (nome, descricao) VALUES (?, ?)",
-                (nome, descricao or None)
+                "INSERT INTO formularios (nome, descricao, texto_abertura) VALUES (?, ?, ?)",
+                (nome, descricao or None, texto_abertura or None)
             )
             db.commit()
             flash('Formulário criado com sucesso!', 'success')
@@ -66,6 +67,7 @@ def init_routes(app):
         if request.method == 'POST':
             nome = request.form.get('nome', '').strip()
             descricao = request.form.get('descricao', '').strip()
+            texto_abertura = request.form.get('texto_abertura', '').strip()
             ativo = 1 if request.form.get('ativo') else 0
 
             if not nome:
@@ -73,8 +75,8 @@ def init_routes(app):
                 return redirect(url_for('admin_formulario_editar', formulario_id=formulario_id))
 
             db.execute(
-                "UPDATE formularios SET nome = ?, descricao = ?, ativo = ? WHERE id = ?",
-                (nome, descricao or None, ativo, formulario_id)
+                "UPDATE formularios SET nome = ?, descricao = ?, texto_abertura = ?, ativo = ? WHERE id = ?",
+                (nome, descricao or None, texto_abertura or None, ativo, formulario_id)
             )
             db.commit()
             flash('Formulário atualizado com sucesso!', 'success')
@@ -125,8 +127,8 @@ def init_routes(app):
         # Criar cópia do formulário
         novo_nome = f"{formulario['nome']} (Cópia)"
         cursor = db.execute(
-            "INSERT INTO formularios (nome, descricao, ativo) VALUES (?, ?, 0)",
-            (novo_nome, formulario['descricao'])
+            "INSERT INTO formularios (nome, descricao, texto_abertura, ativo) VALUES (?, ?, ?, 0)",
+            (novo_nome, formulario['descricao'], formulario['texto_abertura'])
         )
         novo_formulario_id = cursor.lastrowid
 

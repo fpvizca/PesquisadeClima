@@ -24,11 +24,12 @@ CREATE TABLE IF NOT EXISTS usuario_roles (
 );
 
 CREATE TABLE IF NOT EXISTS formularios (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    nome        TEXT NOT NULL,
-    descricao   TEXT,
-    ativo       INTEGER NOT NULL DEFAULT 1,
-    criado_em   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    nome            TEXT NOT NULL,
+    descricao       TEXT,
+    texto_abertura  TEXT,
+    ativo           INTEGER NOT NULL DEFAULT 1,
+    criado_em       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS secoes (

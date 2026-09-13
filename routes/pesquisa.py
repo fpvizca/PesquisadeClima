@@ -24,7 +24,9 @@ def init_routes(app):
         ja_respondeu = ja_respondeu_cookie == '1'
 
         # Fetch sections linked to the cycle's form
+        formulario = None
         if ciclo['formulario_id']:
+            formulario = db.execute("SELECT * FROM formularios WHERE id = ?", (ciclo['formulario_id'],)).fetchone()
             secoes = db.execute(
                 "SELECT * FROM secoes WHERE formulario_id = ? AND ativo = 1 ORDER BY ordem",
                 (ciclo['formulario_id'],)
@@ -43,7 +45,8 @@ def init_routes(app):
             ciclo=ciclo,
             ja_respondeu=ja_respondeu,
             secoes=secoes,
-            total_perguntas=total_perguntas
+            total_perguntas=total_perguntas,
+            formulario=formulario
         )
 
     @app.route('/pesquisa/secao/<int:secao_id>', methods=['GET', 'POST'])
