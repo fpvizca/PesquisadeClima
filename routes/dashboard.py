@@ -44,10 +44,17 @@ def init_routes(app):
         primeira_secao_id = primeira_secao['id'] if primeira_secao else None
 
         total_respostas = 0
+        respondentes_unicos = 0
         ja_respondeu = False
         progresso = 0
         if ciclo_atual:
-            # Count user's answers for this cycle
+            # Count unique respondents for this cycle
+            respondentes_unicos = db.execute(
+                "SELECT COUNT(DISTINCT usuario_id) as c FROM respostas WHERE ciclo_id = ?",
+                (ciclo_atual['id'],)
+            ).fetchone()['c']
+
+            # Count user's answers for progress
             if not is_admin:
                 total_respostas = db.execute(
                     "SELECT COUNT(*) as c FROM respostas WHERE ciclo_id = ? AND usuario_id = ?",
@@ -71,6 +78,7 @@ def init_routes(app):
             total_perguntas=total_perguntas,
             total_secoes=total_secoes,
             total_respostas=total_respostas,
+            respondentes_unicos=respondentes_unicos,
             ja_respondeu=ja_respondeu,
             primeira_secao_id=primeira_secao_id,
             progresso=progresso,
