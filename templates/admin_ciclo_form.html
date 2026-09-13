@@ -30,6 +30,14 @@
             </select>
           </div>
 
+          <div class="mb-3">
+            <label for="titulo" class="form-label">Título da Pesquisa</label>
+            <input type="text" class="form-control" id="titulo" name="titulo"
+                   value="{{ ciclo.titulo if ciclo and ciclo.titulo else '' }}"
+                   placeholder="Ex: Pesquisa de Clima Vizca 2025">
+            <small class="text-muted">Título exibido na página da pesquisa. Se vazio, usa o padrão "Pesquisa de Clima - {ano}".</small>
+          </div>
+
           <div class="row mb-3">
             <div class="col-md-4">
               <label for="ano" class="form-label">Ano *</label>
