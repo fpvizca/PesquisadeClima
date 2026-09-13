@@ -44,21 +44,3 @@ def init_routes(app):
             return redirect(url_for('dashboard'))
 
         return render_template('admin_trocar_senha.html')
-
-    @app.route('/admin/usuarios')
-    @login_required
-    def admin_usuarios():
-        if not has_role(session['usuario_id'], 'admin'):
-            flash('Acesso negado.', 'danger')
-            return redirect(url_for('pesquisa'))
-
-        db = get_db()
-        usuarios = db.execute("""
-            SELECT u.*, GROUP_CONCAT(ur.role) as roles
-            FROM usuarios u
-            LEFT JOIN usuario_roles ur ON u.id = ur.usuario_id
-            GROUP BY u.id
-            ORDER BY u.nome
-        """).fetchall()
-
-        return render_template('admin_usuarios.html', usuarios=usuarios)
