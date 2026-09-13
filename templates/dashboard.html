@@ -115,13 +115,13 @@
       {% if ciclo_atual.data_inicio %}
       <div>
         <small class="text-muted d-block"><i class="bi bi-calendar-event"></i> Início</small>
-        <strong>{{ ciclo_atual.data_inicio }}</strong>
+        <strong>{{ ciclo_atual.data_inicio[8:10] }}/{{ ciclo_atual.data_inicio[5:7] }}/{{ ciclo_atual.data_inicio[0:4] }}</strong>
       </div>
       {% endif %}
       {% if ciclo_atual.data_fim %}
       <div>
         <small class="text-muted d-block"><i class="bi bi-calendar-check"></i> Término</small>
-        <strong>{{ ciclo_atual.data_fim }}</strong>
+        <strong>{{ ciclo_atual.data_fim[8:10] }}/{{ ciclo_atual.data_fim[5:7] }}/{{ ciclo_atual.data_fim[0:4] }}</strong>
       </div>
       {% endif %}
     </div>
