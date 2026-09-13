@@ -16,7 +16,6 @@
           <th>Login</th>
           <th>E-mail</th>
           <th>Função</th>
-          <th class="text-center">Ações</th>
         </tr>
       </thead>
       <tbody>
@@ -36,18 +35,13 @@
               <span class="text-muted">sem função</span>
             {% endif %}
           </td>
-          <td class="text-center">
-            <form method="POST" action="{{ url_for('admin_reset_senha', user_id=u.id) }}"
-                  onsubmit="return confirm('Resetar a senha de {{ u.nome }} para 123456?')" class="d-inline">
-              <button type="submit" class="btn btn-sm btn-outline-warning" title="Resetar senha para 123456">
-                <i class="bi bi-key"></i> Resetar Senha
-              </button>
-            </form>
-          </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
+  </div>
+  <div class="card-footer text-muted">
+    <small><i class="bi bi-info-circle"></i> Usuários e senhas são gerenciados pela API externa.</small>
   </div>
 </div>
 {% endblock %}

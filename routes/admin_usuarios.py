@@ -62,20 +62,3 @@ def init_routes(app):
         """).fetchall()
 
         return render_template('admin_usuarios.html', usuarios=usuarios)
-
-    @app.route('/admin/usuarios/<int:user_id>/reset-senha', methods=['POST'])
-    @login_required
-    def admin_reset_senha(user_id):
-        if not has_role(session['usuario_id'], 'admin'):
-            flash('Acesso negado.', 'danger')
-            return redirect(url_for('pesquisa'))
-
-        db = get_db()
-        nova_senha_padrao = '123456'
-        db.execute(
-            "UPDATE usuarios SET senha_hash = ?, atualizado_em = CURRENT_TIMESTAMP WHERE id = ?",
-            (hash_senha(nova_senha_padrao), user_id)
-        )
-        db.commit()
-        flash(f'Senha resetada para: {nova_senha_padrao}', 'success')
-        return redirect(url_for('admin_usuarios'))

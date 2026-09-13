@@ -46,7 +46,7 @@ def login():
         flash('Informe o usuário.', 'danger')
         return redirect(url_for('index'))
 
-    # Tenta autenticar via API externa primeiro
+    # Autenticação via API externa
     api_result = api_request('POST', '/auth/login', {'login': login_input, 'password': senha})
     if api_result.get('success') and api_result.get('user'):
         user_data = api_result['user']
@@ -61,14 +61,6 @@ def login():
         flash('Usuário desativado.', 'danger')
         return redirect(url_for('index'))
 
-    # Fallback: autenticação local (desenvolvimento)
-    db = get_db()
-    user = db.execute("SELECT * FROM usuarios WHERE (email = ? OR login = ?) AND ativo = 1", (login_input, login_input)).fetchone()
-    if user and user['senha_hash'] == hash_senha(senha):
-        session.permanent = True
-        session['usuario_id'] = user['id']
-        flash('Login realizado com sucesso!', 'success')
-        return redirect(url_for('dashboard'))
     flash('Usuário ou senha inválidos.', 'danger')
     return redirect(url_for('index'))
 
