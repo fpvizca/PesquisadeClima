@@ -3,7 +3,7 @@ import urllib.request
 import urllib.error
 import os
 
-OLLAMA_BASE = os.environ.get('OLLAMA_BASE', 'http://localhost:11434')
+OLLAMA_BASE = os.environ.get('OLLAMA_BASE', 'http://192.168.170.12:11434')
 MODEL = os.environ.get('OLLAMA_MODEL', 'ministral-3:8b')
 
 def generate(prompt, model=None):
