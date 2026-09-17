@@ -16,7 +16,7 @@ def init_routes(app):
         ciclo = db.execute("SELECT * FROM ciclos WHERE ativo = 1 ORDER BY id DESC LIMIT 1").fetchone()
         if not ciclo:
             flash('Nenhum ciclo ativo encontrado.', 'warning')
-            return redirect(url_for('index'))
+            return redirect(url_for('dashboard'))
 
         cookie_name = f'clima_respondeu_{ciclo["id"]}'
         ja_respondeu_cookie = request.cookies.get(cookie_name)
@@ -55,8 +55,8 @@ def init_routes(app):
         db = get_db()
         ciclo = db.execute("SELECT * FROM ciclos WHERE ativo = 1 ORDER BY id DESC LIMIT 1").fetchone()
         if not ciclo:
-            flash('Nenhum ciclo ativo encontrado.', 'warning')
-            return redirect(url_for('index'))
+            flash('Nenhum ciclo encontrado.', 'warning')
+            return redirect(url_for('dashboard'))
 
         # Fetch sections linked to the cycle's form
         if ciclo['formulario_id']:
@@ -158,7 +158,7 @@ def init_routes(app):
         ciclo = db.execute("SELECT * FROM ciclos WHERE ativo = 1 ORDER BY id DESC LIMIT 1").fetchone()
         if not ciclo:
             flash('Nenhum ciclo ativo encontrado.', 'warning')
-            return redirect(url_for('index'))
+            return redirect(url_for('dashboard'))
 
         cookie_name = f'clima_respondeu_{ciclo["id"]}'
         ja_respondeu_cookie = request.cookies.get(cookie_name)
@@ -224,7 +224,7 @@ def init_routes(app):
 
         if not ciclo:
             flash('Nenhum ciclo encontrado.', 'warning')
-            return redirect(url_for('index'))
+            return redirect(url_for('dashboard'))
 
         # Fetch sections linked to the cycle's form
         if ciclo['formulario_id']:
@@ -310,7 +310,7 @@ def init_routes(app):
 
         if not ciclo:
             flash('Nenhum ciclo encontrado.', 'warning')
-            return redirect(url_for('index'))
+            return redirect(url_for('dashboard'))
 
         # Fetch sections linked to the cycle's form
         if ciclo['formulario_id']:
@@ -470,7 +470,7 @@ Seja objetivo, use dados numéricos e escreva em português brasileiro profissio
 
         if not ciclo:
             flash('Nenhum ciclo encontrado.', 'warning')
-            return redirect(url_for('index'))
+            return redirect(url_for('dashboard'))
 
         wb = Workbook()
 
@@ -728,8 +728,8 @@ Seja objetivo, use dados numéricos e escreva em português brasileiro profissio
             ciclo = db.execute("SELECT * FROM ciclos WHERE ativo = 1 ORDER BY id DESC LIMIT 1").fetchone()
 
         if not ciclo:
-            flash('Nenhum ciclo ativo encontrado.', 'warning')
-            return redirect(url_for('index'))
+            flash('Nenhum ciclo encontrado.', 'warning')
+            return redirect(url_for('dashboard'))
 
         total_habilitados = db.execute(
             "SELECT COUNT(*) as c FROM usuario_roles WHERE role = 'colaborador'"
