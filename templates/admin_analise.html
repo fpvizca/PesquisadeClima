@@ -4,6 +4,7 @@
 
 {% block head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 {% endblock %}
 
 {% block content %}
@@ -276,6 +277,10 @@ dadosSecoes.forEach(d => {
 });
 
 async function gerarAnaliseGeral() {
+  const btn = event.target.closest('button');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Gerando...';
+
   const geral = dadosSecoes.reduce((acc, d) => {
     acc.total += d.total_respostas;
     Object.keys(d.distribuicao).forEach(k => acc.distribuicao[k] = (acc.distribuicao[k]||0) + d.distribuicao[k]);
@@ -288,30 +293,47 @@ async function gerarAnaliseGeral() {
   const menores = dadosSecoes.filter(d=>d.media).sort((a,b)=>a.media-b.media).slice(0,3).map(d=>({secao:d.secao.nome,media:d.media}));
   const maiores = dadosSecoes.filter(d=>d.media).sort((a,b)=>b.media-a.media).slice(0,3).map(d=>({secao:d.secao.nome,media:d.media}));
 
-  const res = await fetch('/api/analise-ia', {
-    method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({secao: 'Geral', dados: {...geral, menores_notas: menores, maiores_notas: maiores}})
-  });
-  const data = await res.json();
-  document.getElementById('analiseGeralTexto').innerHTML = marked.parse(data.response);
-  document.getElementById('analiseGeral').style.display = 'block';
+  try {
+    const res = await fetch('/api/analise-ia', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({secao: 'Geral', dados: {...geral, menores_notas: menores, maiores_notas: maiores}})
+    });
+    const data = await res.json();
+    document.getElementById('analiseGeralTexto').innerHTML = marked.parse(data.response || data.error || 'Sem resposta');
+    document.getElementById('analiseGeral').style.display = 'block';
+  } catch(e) {
+    document.getElementById('analiseGeralTexto').innerHTML = '<div class="text-danger">Erro ao conectar com IA: ' + e.message + '</div>';
+    document.getElementById('analiseGeral').style.display = 'block';
+  }
+  btn.disabled = false;
+  btn.innerHTML = '<i class="bi bi-robot"></i> Gerar Análise IA';
 }
 
 async function gerarAnaliseSecao(secaoId, nome) {
   const d = dadosSecoes.find(s => s.secao.id === secaoId);
   if (!d) return;
 
+  const btn = event.target.closest('button');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Gerando...';
+
   const menores = d.perguntas.filter(p=>p.nota).sort((a,b)=>a.nota-b.nota).slice(0,3).map(p=>({pergunta:p.texto,nota:p.nota}));
   const maiores = d.perguntas.filter(p=>p.nota).sort((a,b)=>b.nota-a.nota).slice(0,3).map(p=>({pergunta:p.texto,nota:p.nota}));
 
-  const res = await fetch('/api/analise-ia', {
-    method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({secao: nome, dados: {media: d.media, total: d.total_respostas, pct_satisfatorio: d.pct_satisfatorio, distribuicao: d.distribuicao, menores_notas: menores, maiores_notas: maiores}})
-  });
-  const data = await res.json();
-  document.getElementById('analiseSecaoTexto' + secaoId).innerHTML = marked.parse(data.response);
-  document.getElementById('analiseSecao' + secaoId).style.display = 'block';
+  try {
+    const res = await fetch('/api/analise-ia', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({secao: nome, dados: {media: d.media, total: d.total_respostas, pct_satisfatorio: d.pct_satisfatorio, distribuicao: d.distribuicao, menores_notas: menores, maiores_notas: maiores}})
+    });
+    const data = await res.json();
+    document.getElementById('analiseSecaoTexto' + secaoId).innerHTML = marked.parse(data.response || data.error || 'Sem resposta');
+    document.getElementById('analiseSecao' + secaoId).style.display = 'block';
+  } catch(e) {
+    document.getElementById('analiseSecaoTexto' + secaoId).innerHTML = '<div class="text-danger">Erro ao conectar com IA: ' + e.message + '</div>';
+    document.getElementById('analiseSecao' + secaoId).style.display = 'block';
+  }
+  btn.disabled = false;
+  btn.innerHTML = '<i class="bi bi-robot"></i> Gerar Análise IA';
 }
 </script>
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 {% endblock %}
