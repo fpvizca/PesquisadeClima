@@ -755,6 +755,7 @@ Seja objetivo, use dados numéricos e escreva em português brasileiro profissio
         from docx.enum.text import WD_ALIGN_PARAGRAPH
         from docx.enum.table import WD_TABLE_ALIGNMENT
         from docx.oxml.ns import qn
+        from ollama_helper import generate as ollama_generate
 
         db = get_db()
         if not has_role(session['usuario_id'], 'admin'):
@@ -851,6 +852,88 @@ Seja objetivo, use dados numéricos e escreva em português brasileiro profissio
         run.bold = True
         p.add_run(f'{total_respostas} respostas de {total_habilitados} colaboradores habilitados '
                   f'({round(total_respostas / total_habilitados * 100, 1) if total_habilitados > 0 else 0}% de adesão)')
+
+        # Análise IA Geral
+        try:
+            dados_geral_ia = {'media': None, 'total': 0, 'pct_satisfatorio': 0, 'distribuicao': {}, 'menores_notas': [], 'maiores_notas': [], 'respostas_abertas': [], 'comentarios': []}
+            medias_geral = []
+            total_pond_geral = 0
+            total_satisf_geral = 0
+            dist_geral = {}
+            dados_secoes_resumo = []
+
+            for secao in secoes:
+                perguntas_esc = db.execute(
+                    "SELECT * FROM perguntas WHERE secao_id = ? AND ativo = 1 AND tipo = 'escala' ORDER BY ordem",
+                    (secao['id'],)
+                ).fetchall()
+                medias_s = []
+                for p in perguntas_esc:
+                    contagem = db.execute("""
+                        SELECT valor, COUNT(*) as cnt FROM respostas
+                        WHERE ciclo_id = ? AND pergunta_id = ? AND valor IS NOT NULL
+                        GROUP BY valor
+                    """, (ciclo['id'], p['id'])).fetchall()
+                    mapa = {r['valor']: r['cnt'] for r in contagem}
+                    total_p = sum(mapa.values())
+                    if total_p > 0:
+                        nota = (mapa.get('Concordo totalmente', 0) * 5 + mapa.get('Concordo', 0) * 4 +
+                                mapa.get('Não concordo e nem discordo', 0) * 3 + mapa.get('Discordo', 0) * 2 +
+                                mapa.get('Discordo totalmente', 0) * 1) / total_p
+                        medias_s.append(nota)
+                        medias_geral.append(nota)
+                        total_pond_geral += total_p
+                        total_satisf_geral += mapa.get('Concordo totalmente', 0) + mapa.get('Concordo', 0)
+                        for k, v in mapa.items():
+                            dist_geral[k] = dist_geral.get(k, 0) + v
+                if medias_s:
+                    dados_secoes_resumo.append({'nome': secao['nome'], 'media': round(sum(medias_s)/len(medias_s), 2)})
+
+            dados_geral_ia['media'] = round(sum(medias_geral)/len(medias_geral), 2) if medias_geral else None
+            dados_geral_ia['total'] = total_pond_geral
+            dados_geral_ia['pct_satisfatorio'] = round(total_satisf_geral / total_pond_geral * 100, 1) if total_pond_geral > 0 else 0
+            dados_geral_ia['distribuicao'] = dist_geral
+            dados_geral_ia['menores_notas'] = sorted(dados_secoes_resumo, key=lambda x: x['media'])[:3]
+            dados_geral_ia['maiores_notas'] = sorted(dados_secoes_resumo, key=lambda x: x['media'], reverse=True)[:3]
+
+            abertas_geral = db.execute("""
+                SELECT p.codigo, r.valor FROM respostas r JOIN perguntas p ON r.pergunta_id = p.id
+                WHERE r.ciclo_id = ? AND p.tipo IN ('texto', 'paragrafo') AND r.valor IS NOT NULL AND r.valor != ''
+            """, (ciclo['id'],)).fetchall()
+            dados_geral_ia['respostas_abertas'] = [{'codigo': r['codigo'], 'texto': r['valor']} for r in abertas_geral[:15]]
+
+            comentarios_geral = db.execute("""
+                SELECT p.codigo, r.comentario FROM respostas r JOIN perguntas p ON r.pergunta_id = p.id
+                WHERE r.ciclo_id = ? AND r.comentario IS NOT NULL AND r.comentario != ''
+            """, (ciclo['id'],)).fetchall()
+            dados_geral_ia['comentarios'] = [{'codigo': r['codigo'], 'comentario': r['comentario']} for r in comentarios_geral[:15]]
+
+            prompt_geral = f"""Gere uma análise geral para o relatório da pesquisa de clima organizacional "{ciclo['nome']}".
+
+Dados:
+- Média geral: {dados_geral_ia['media']}
+- Total de respostas: {dados_geral_ia['total']}
+- % Satisfatório: {dados_geral_ia['pct_satisfatorio']}%
+- Distribuição: {json.dumps(dist_geral, ensure_ascii=False)}
+- Melhores seções: {json.dumps(dados_geral_ia['maiores_notas'], ensure_ascii=False)}
+- Seções para melhorar: {json.dumps(dados_geral_ia['menores_notas'], ensure_ascii=False)}
+- Respostas abertas: {json.dumps(dados_geral_ia['respostas_abertas'], ensure_ascii=False)}
+- Comentários: {json.dumps(dados_geral_ia['comentarios'], ensure_ascii=False)}
+
+Escreva uma análise geral (10-15 linhas) cobrindo: resumo executivo, pontos fortes, pontos de atenção, tendências, recomendações. Portugês profissional."""
+
+            analise_geral = ollama_generate(prompt_geral)
+            if analise_geral and 'Erro' not in analise_geral:
+                h_ia = doc.add_heading('Análise Geral IA', level=2)
+                for run in h_ia.runs:
+                    run.font.color.rgb = RGBColor(31, 78, 121)
+                p_ia = doc.add_paragraph()
+                run_ia = p_ia.add_run(analise_geral)
+                run_ia.font.size = Pt(11)
+                run_ia.font.color.rgb = RGBColor(50, 50, 50)
+                doc.add_paragraph('')
+        except Exception:
+            pass
 
         # -- Resumo por Seção --
         h = doc.add_heading('2. Resumo por Seção', level=1)
@@ -1081,6 +1164,34 @@ Seja objetivo, use dados numéricos e escreva em português brasileiro profissio
                         run.font.color.rgb = RGBColor(100, 100, 100)
                         run.italic = True
 
+                    # Análise IA da Pergunta
+                    try:
+                        comentarios_p = db.execute("""
+                            SELECT r.comentario FROM respostas r
+                            WHERE r.ciclo_id = ? AND r.pergunta_id = ? AND r.comentario IS NOT NULL AND r.comentario != ''
+                        """, (ciclo['id'], p['id'])).fetchall()
+
+                        prompt_pergunta = f"""Gere uma análise curta para a pergunta "{p['texto']}" (código {p['codigo']}) da pesquisa de clima.
+Média: {round(nota, 2)} | Satisfatório: {pct_satisf}% | Total: {total_p}
+Distribuição: {json.dumps(mapa, ensure_ascii=False)}
+Comentários: {json.dumps([r['comentario'] for r in comentarios_p[:5]], ensure_ascii=False)}
+
+Escreva 3-5 linhas: o que revela, resultado, comentários relevantes. Portugês profissional."""
+
+                        analise_pergunta = ollama_generate(prompt_pergunta)
+                        if analise_pergunta and 'Erro' not in analise_pergunta:
+                            p_ia = doc.add_paragraph()
+                            run_ia = p_ia.add_run(f'Análise IA: ')
+                            run_ia.bold = True
+                            run_ia.font.size = Pt(9)
+                            run_ia.font.color.rgb = RGBColor(31, 78, 121)
+                            run_ia2 = p_ia.add_run(analise_pergunta)
+                            run_ia2.font.size = Pt(9)
+                            run_ia2.font.color.rgb = RGBColor(80, 80, 80)
+                            run_ia2.italic = True
+                    except Exception:
+                        pass
+
                 elif p['tipo'] in ('texto', 'paragrafo'):
                     respostas_texto = db.execute("""
                         SELECT valor FROM respostas
@@ -1100,7 +1211,74 @@ Seja objetivo, use dados numéricos e escreva em português brasileiro profissio
 
                 doc.add_paragraph('')
 
-        # -- Respostas Abertas --
+            # Análise IA da Seção
+            try:
+                perguntas_esc_secao = [p for p in perguntas if p['tipo'] == 'escala']
+                dados_secao_ia = {'media': None, 'total': 0, 'pct_satisfatorio': 0, 'distribuicao': {}, 'menores_notas': [], 'maiores_notas': [], 'respostas_abertas': [], 'comentarios': []}
+                medias_s = []
+                total_pond_s = 0
+                total_satisf_s = 0
+                dist_s = {}
+                for p in perguntas_esc_secao:
+                    contagem = db.execute("""
+                        SELECT valor, COUNT(*) as cnt FROM respostas
+                        WHERE ciclo_id = ? AND pergunta_id = ? AND valor IS NOT NULL
+                        GROUP BY valor
+                    """, (ciclo['id'], p['id'])).fetchall()
+                    mapa = {r['valor']: r['cnt'] for r in contagem}
+                    total_p = sum(mapa.values())
+                    if total_p > 0:
+                        nota = (mapa.get('Concordo totalmente', 0) * 5 + mapa.get('Concordo', 0) * 4 +
+                                mapa.get('Não concordo e nem discordo', 0) * 3 + mapa.get('Discordo', 0) * 2 +
+                                mapa.get('Discordo totalmente', 0) * 1) / total_p
+                        medias_s.append(nota)
+                        total_pond_s += total_p
+                        total_satisf_s += mapa.get('Concordo totalmente', 0) + mapa.get('Concordo', 0)
+                        for k, v in mapa.items():
+                            dist_s[k] = dist_s.get(k, 0) + v
+
+                dados_secao_ia['media'] = round(sum(medias_s) / len(medias_s), 2) if medias_s else None
+                dados_secao_ia['total'] = total_pond_s
+                dados_secao_ia['pct_satisfatorio'] = round(total_satisf_s / total_pond_s * 100, 1) if total_pond_s > 0 else 0
+                dados_secao_ia['distribuicao'] = dist_s
+
+                abertas_s = db.execute("""
+                    SELECT p.codigo, r.valor FROM respostas r JOIN perguntas p ON r.pergunta_id = p.id
+                    WHERE r.ciclo_id = ? AND p.secao_id = ? AND p.tipo IN ('texto', 'paragrafo') AND r.valor IS NOT NULL AND r.valor != ''
+                """, (ciclo['id'], secao['id'])).fetchall()
+                dados_secao_ia['respostas_abertas'] = [{'codigo': r['codigo'], 'texto': r['valor']} for r in abertas_s[:10]]
+
+                comentarios_s = db.execute("""
+                    SELECT p.codigo, r.comentario FROM respostas r JOIN perguntas p ON r.pergunta_id = p.id
+                    WHERE r.ciclo_id = ? AND p.secao_id = ? AND r.comentario IS NOT NULL AND r.comentario != ''
+                """, (ciclo['id'], secao['id'])).fetchall()
+                dados_secao_ia['comentarios'] = [{'codigo': r['codigo'], 'comentario': r['comentario']} for r in comentarios_s[:10]]
+
+                prompt_secao = f"""Gere uma análise profissional para a seção "{secao['nome']}" da pesquisa de clima organizacional.
+
+Dados:
+- Média: {dados_secao_ia['media']}
+- Total de respostas: {dados_secao_ia['total']}
+- % Satisfatório: {dados_secao_ia['pct_satisfatorio']}%
+- Distribuição: {json.dumps(dist_s, ensure_ascii=False)}
+- Respostas abertas: {json.dumps(dados_secao_ia['respostas_abertas'], ensure_ascii=False)}
+- Comentários: {json.dumps(dados_secao_ia['comentarios'], ensure_ascii=False)}
+
+Escreva uma análise curta (5-8 linhas) em português brasileiro profissional."""
+
+                analise_secao_texto = ollama_generate(prompt_secao)
+                if analise_secao_texto and 'Erro' not in analise_secao_texto:
+                    h_ia = doc.add_heading('Análise IA', level=3)
+                    for run in h_ia.runs:
+                        run.font.color.rgb = RGBColor(31, 78, 121)
+                    p_ia = doc.add_paragraph()
+                    run_ia = p_ia.add_run(analise_secao_texto)
+                    run_ia.font.size = Pt(10)
+                    run_ia.font.color.rgb = RGBColor(50, 50, 50)
+            except Exception:
+                pass
+
+            doc.add_paragraph('')
         perguntas_abertas = db.execute("""
             SELECT p.codigo, p.texto, s.nome as secao_nome, r.valor
             FROM respostas r JOIN perguntas p ON r.pergunta_id = p.id JOIN secoes s ON p.secao_id = s.id
@@ -1131,6 +1309,30 @@ Seja objetivo, use dados numéricos e escreva em português brasileiro profissio
                 run.font.size = Pt(10)
 
             doc.add_paragraph('')
+
+        # Análise IA das Respostas Abertas
+        if perguntas_abertas:
+            try:
+                textos_abertos = [r['valor'] for r in perguntas_abertas[:20]]
+                prompt_abertas = f"""Gere uma análise das respostas abertas da pesquisa de clima organizacional.
+
+Respostas coletadas ({len(textos_abertos)} amostras):
+{json.dumps(textos_abertos, ensure_ascii=False, indent=2)}
+
+Escreva uma análise (5-8 linhas) identificando: temas recorrentes, pontos positivos, pontos de atenção, sugestões mencionadas. Portugês profissional."""
+
+                analise_abertas = ollama_generate(prompt_abertas)
+                if analise_abertas and 'Erro' not in analise_abertas:
+                    h_ia = doc.add_heading('Análise IA - Respostas Abertas', level=2)
+                    for run in h_ia.runs:
+                        run.font.color.rgb = RGBColor(31, 78, 121)
+                    p_ia = doc.add_paragraph()
+                    run_ia = p_ia.add_run(analise_abertas)
+                    run_ia.font.size = Pt(10)
+                    run_ia.font.color.rgb = RGBColor(50, 50, 50)
+                    doc.add_paragraph('')
+            except Exception:
+                pass
 
         # -- Considerações Finais --
         h = doc.add_heading('Considerações Finais', level=1)
