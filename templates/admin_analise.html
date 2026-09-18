@@ -139,7 +139,12 @@
           <tbody>
             {% for p in d.perguntas %}
             <tr>
-              <td><small>{{ p.codigo }} - {{ p.texto[:60] }}{% if p.texto|length > 60 %}...{% endif %}</small></td>
+              <td>
+                <small>{{ p.codigo }} - {{ p.texto[:60] }}{% if p.texto|length > 60 %}...{% endif %}</small>
+                <br><button class="btn btn-link btn-sm p-0 text-decoration-none" onclick="gerarAnalisePergunta({{ d.secao.id }}, '{{ p.codigo }}', '{{ p.texto[:100]|replace("'", "\\'") }}', {{ p.nota or 'null' }}, {{ p.pct_satisfatorio }}, {{ p.total }}, {{ p.distribuicao|tojson }})">
+                  <i class="bi bi-robot"></i> Análise IA
+                </button>
+              </td>
               <td class="text-center">
                 {% if p.nota %}
                 <span class="fw-bold {% if p.nota >= 4 %}text-success{% elif p.nota >= 3 %}text-warning{% else %}text-danger{% endif %}">
@@ -163,6 +168,13 @@
                   <div class="progress-bar bg-danger" style="width:{{ ((p.distribuicao['Discordo'] + p.distribuicao['Discordo totalmente']) / total_p * 100)|int }}%"
                        title="Insatisfatório"></div>
                   {% endif %}
+                </div>
+              </td>
+            </tr>
+            <tr id="analisePergunta{{ d.secao.id }}_{{ p.codigo }}" style="display:none;">
+              <td colspan="4">
+                <div class="card bg-light">
+                  <div class="card-body small" id="analisePerguntaTexto{{ d.secao.id }}_{{ p.codigo }}"></div>
                 </div>
               </td>
             </tr>
@@ -334,6 +346,33 @@ async function gerarAnaliseSecao(secaoId, nome) {
   }
   btn.disabled = false;
   btn.innerHTML = '<i class="bi bi-robot"></i> Gerar Análise IA';
+}
+
+async function gerarAnalisePergunta(secaoId, codigo, texto, nota, pct, total, distribuicao) {
+  const row = document.getElementById('analisePergunta' + secaoId + '_' + codigo);
+  const textDiv = document.getElementById('analisePerguntaTexto' + secaoId + '_' + codigo);
+
+  if (row.style.display === 'block') {
+    row.style.display = 'none';
+    return;
+  }
+
+  textDiv.innerHTML = '<div class="text-muted"><i class="bi bi-hourglass-split"></i> Gerando análise...</div>';
+  row.style.display = 'block';
+
+  try {
+    const res = await fetch('/api/analise-ia', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        secao: 'Pergunta ' + codigo,
+        dados: {media: nota, total: total, pct_satisfatorio: pct, distribuicao: distribuicao, texto_pergunta: texto}
+      })
+    });
+    const data = await res.json();
+    textDiv.innerHTML = marked.parse(data.response || data.error || 'Sem resposta');
+  } catch(e) {
+    textDiv.innerHTML = '<div class="text-danger">Erro: ' + e.message + '</div>';
+  }
 }
 </script>
 {% endblock %}

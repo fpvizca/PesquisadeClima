@@ -418,7 +418,30 @@ def init_routes(app):
         secao_nome = data.get('secao', 'Geral')
         dados = data.get('dados', {})
 
-        prompt = f"""Gere uma análise profissional no estilo de relatório de pesquisa de clima organizacional para a seção "{secao_nome}".
+        texto_pergunta = dados.get('texto_pergunta', '')
+
+        if texto_pergunta:
+            prompt = f"""Gere uma análise profissional para a pergunta da pesquisa de clima organizacional:
+
+Pergunta: "{texto_pergunta}"
+Código: {secao_nome}
+
+Dados:
+- Nota média: {dados.get('media', 'N/A')}
+- Total de respostas: {dados.get('total', 'N/A')}
+- % Satisfatório: {dados.get('pct_satisfatorio', 'N/A')}%
+
+Distribuição:
+{json.dumps(dados.get('distribuicao', {}), ensure_ascii=False, indent=2)}
+
+Escreva uma análise curta (5-8 linhas):
+1. O que esta pergunta revela
+2. Resultado obtido
+3. Interpretação e recomendação
+
+Seja objetivo, use dados numéricos e escreva em português brasileiro profissional."""
+        else:
+            prompt = f"""Gere uma análise profissional no estilo de relatório de pesquisa de clima organizacional para a seção "{secao_nome}".
 
 Dados estatísticos:
 - Média da seção: {dados.get('media', 'N/A')}
