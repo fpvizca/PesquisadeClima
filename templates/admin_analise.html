@@ -217,6 +217,8 @@
 {% block scripts %}
 <script>
 const dadosSecoes = {{ dados_secoes | tojson }};
+const perguntasAbertas = {{ perguntas_abertas | tojson }};
+const comentarios = {{ comentarios | tojson }};
 
 // Gráfico de Médias
 const ctxMedias = document.getElementById('chartMedias').getContext('2d');
@@ -305,10 +307,13 @@ async function gerarAnaliseGeral() {
   const menores = dadosSecoes.filter(d=>d.media).sort((a,b)=>a.media-b.media).slice(0,3).map(d=>({secao:d.secao.nome,media:d.media}));
   const maiores = dadosSecoes.filter(d=>d.media).sort((a,b)=>b.media-a.media).slice(0,3).map(d=>({secao:d.secao.nome,media:d.media}));
 
+  const abertas = perguntasAbertas.slice(0, 15).map(r => ({codigo: r.codigo, texto: r.valor}));
+  const coments = comentarios.slice(0, 15).map(r => ({codigo: r.codigo, comentario: r.comentario}));
+
   try {
     const res = await fetch('/api/analise-ia', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({secao: 'Geral', dados: {...geral, menores_notas: menores, maiores_notas: maiores}})
+      body: JSON.stringify({secao: 'Geral', dados: {...geral, menores_notas: menores, maiores_notas: maiores, respostas_abertas: abertas, comentarios: coments}})
     });
     const data = await res.json();
     document.getElementById('analiseGeralTexto').innerHTML = marked.parse(data.response || data.error || 'Sem resposta');
@@ -332,10 +337,13 @@ async function gerarAnaliseSecao(secaoId, nome) {
   const menores = d.perguntas.filter(p=>p.nota).sort((a,b)=>a.nota-b.nota).slice(0,3).map(p=>({pergunta:p.texto,nota:p.nota}));
   const maiores = d.perguntas.filter(p=>p.nota).sort((a,b)=>b.nota-a.nota).slice(0,3).map(p=>({pergunta:p.texto,nota:p.nota}));
 
+  const abertasSecao = perguntasAbertas.filter(r => r.secao_nome === nome).slice(0, 10).map(r => ({codigo: r.codigo, texto: r.valor}));
+  const comentsSecao = comentarios.filter(r => r.secao_nome === nome).slice(0, 10).map(r => ({codigo: r.codigo, comentario: r.comentario}));
+
   try {
     const res = await fetch('/api/analise-ia', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({secao: nome, dados: {media: d.media, total: d.total_respostas, pct_satisfatorio: d.pct_satisfatorio, distribuicao: d.distribuicao, menores_notas: menores, maiores_notas: maiores}})
+      body: JSON.stringify({secao: nome, dados: {media: d.media, total: d.total_respostas, pct_satisfatorio: d.pct_satisfatorio, distribuicao: d.distribuicao, menores_notas: menores, maiores_notas: maiores, respostas_abertas: abertasSecao, comentarios: comentsSecao}})
     });
     const data = await res.json();
     document.getElementById('analiseSecaoTexto' + secaoId).innerHTML = marked.parse(data.response || data.error || 'Sem resposta');

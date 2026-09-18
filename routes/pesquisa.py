@@ -399,13 +399,21 @@ def init_routes(app):
             ORDER BY s.ordem, p.ordem
         """, (ciclo['id'],)).fetchall()
 
+        comentarios = db.execute("""
+            SELECT p.codigo, p.texto, s.nome as secao_nome, r.comentario
+            FROM respostas r JOIN perguntas p ON r.pergunta_id = p.id JOIN secoes s ON p.secao_id = s.id
+            WHERE r.ciclo_id = ? AND r.comentario IS NOT NULL AND r.comentario != ''
+            ORDER BY s.ordem, p.ordem
+        """, (ciclo['id'],)).fetchall()
+
         return render_template('admin_analise.html',
             ciclo=ciclo,
             ciclos=ciclos,
             dados_secoes=dados_secoes,
             total_habilitados=total_habilitados,
             total_respostas=total_respostas_db,
-            perguntas_abertas=perguntas_abertas
+            perguntas_abertas=perguntas_abertas,
+            comentarios=comentarios
         )
 
     @app.route('/api/analise-ia', methods=['POST'])
@@ -419,6 +427,7 @@ def init_routes(app):
         dados = data.get('dados', {})
 
         texto_pergunta = dados.get('texto_pergunta', '')
+        comentarios_dados = dados.get('comentarios', [])
 
         if texto_pergunta:
             prompt = f"""Gere uma análise profissional para a pergunta da pesquisa de clima organizacional:
@@ -434,10 +443,14 @@ Dados:
 Distribuição:
 {json.dumps(dados.get('distribuicao', {}), ensure_ascii=False, indent=2)}
 
+Comentários dos colaboradores:
+{json.dumps(comentarios_dados, ensure_ascii=False, indent=2)}
+
 Escreva uma análise curta (5-8 linhas):
 1. O que esta pergunta revela
 2. Resultado obtido
-3. Interpretação e recomendação
+3. Comentários relevantes dos colaboradores
+4. Interpretação e recomendação
 
 Seja objetivo, use dados numéricos e escreva em português brasileiro profissional."""
         else:
@@ -460,12 +473,16 @@ Perguntas com maiores notas:
 Respostas abertas relevantes:
 {json.dumps(dados.get('respostas_abertas', []), ensure_ascii=False, indent=2)}
 
+Comentários dos colaboradores:
+{json.dumps(comentarios_dados, ensure_ascii=False, indent=2)}
+
 Escreva uma análise:
 1. Resumo executivo da seção
 2. Pontos fortes identificados
 3. Pontos de atenção
-4. Comparação com benchmarks (ideal > 4.0)
-5. Recomendações de ações
+4. Comentários relevantes dos colaboradores
+5. Comparação com benchmarks (ideal > 4.0)
+6. Recomendações de ações
 
 Seja objetivo, use dados numéricos e escreva em português brasileiro profissional."""
 
