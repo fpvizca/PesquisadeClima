@@ -44,3 +44,37 @@ def init_routes(app):
             return redirect(url_for('dashboard'))
 
         return render_template('admin_trocar_senha.html')
+
+    @app.route('/admin/bloqueados', methods=['GET', 'POST'])
+    @login_required
+    def admin_bloqueados():
+        if not has_role(session['usuario_id'], 'admin'):
+            flash('Acesso negado.', 'danger')
+            return redirect(url_for('dashboard'))
+
+        db = get_db()
+
+        if request.method == 'POST':
+            acao = request.form.get('acao')
+            if acao == 'adicionar':
+                novos = [l.strip().lower() for l in request.form.get('logins', '').replace(',', '\n').splitlines()]
+                novos = [l for l in novos if l]
+                if not novos:
+                    flash('Informe ao menos um login.', 'warning')
+                else:
+                    for l in novos:
+                        db.execute(
+                            "INSERT OR IGNORE INTO usuarios_bloqueados (login, motivo) VALUES (?, ?)",
+                            (l, request.form.get('motivo', '').strip() or 'Bloqueado pela administração')
+                        )
+                    db.commit()
+                    flash(f'{len(novos)} login(s) bloqueado(s).', 'success')
+            elif acao == 'remover':
+                login = request.form.get('login', '')
+                db.execute("DELETE FROM usuarios_bloqueados WHERE lower(login) = lower(?)", (login,))
+                db.commit()
+                flash(f'Login "{login}" desbloqueado.', 'success')
+            return redirect(url_for('admin_bloqueados'))
+
+        bloqueados = db.execute("SELECT * FROM usuarios_bloqueados ORDER BY login").fetchall()
+        return render_template('admin_bloqueados.html', bloqueados=bloqueados)

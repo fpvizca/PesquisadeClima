@@ -1,7 +1,7 @@
 import os
 from datetime import datetime, timedelta
 from db import get_db, init_db, init_app
-from auth import hash_senha, api_request, upsert_usuario_externo, usuario_logado, has_role
+from auth import hash_senha, api_request, upsert_usuario_externo, usuario_logado, has_role, usuario_bloqueado, mensagem_bloqueio
 from flask import Flask, render_template, request, redirect, session, url_for, flash
 
 app = Flask(__name__)
@@ -46,6 +46,12 @@ def login():
         flash('Informe o usuário.', 'danger')
         return redirect(url_for('index'))
 
+    # Bloqueio de colaboradores fora do perfil da pesquisa
+    bloq = usuario_bloqueado(login_input)
+    if bloq:
+        flash(mensagem_bloqueio(), 'danger')
+        return redirect(url_for('index'))
+
     # Autenticação via API externa
     api_result = api_request('POST', '/auth/login', {'login': login_input, 'password': senha})
     if api_result.get('success') and api_result.get('user'):
@@ -54,6 +60,9 @@ def login():
         usuario_id = upsert_usuario_externo(user_data)
         user = db.execute("SELECT * FROM usuarios WHERE id = ?", (usuario_id,)).fetchone()
         if user and user['ativo']:
+            if usuario_bloqueado(user['login']):
+                flash(mensagem_bloqueio(), 'danger')
+                return redirect(url_for('index'))
             session.permanent = True
             session['usuario_id'] = user['id']
             flash('Login realizado com sucesso!', 'success')
@@ -65,6 +74,9 @@ def login():
     db = get_db()
     user = db.execute("SELECT * FROM usuarios WHERE (email = ? OR login = ?) AND ativo = 1", (login_input, login_input)).fetchone()
     if user and user['senha_hash'] == hash_senha(senha):
+        if usuario_bloqueado(user['login'] or login_input):
+            flash(mensagem_bloqueio(), 'danger')
+            return redirect(url_for('index'))
         session.permanent = True
         session['usuario_id'] = user['id']
         flash('Login realizado com sucesso! (modo local)', 'warning')

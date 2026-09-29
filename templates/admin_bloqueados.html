@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Logins Bloqueados{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h4 class="mb-1">Logins Bloqueados</h4>
+    <small class="text-muted">Colaboradores sem mais de 3 meses de empresa não podem participar da pesquisa.</small>
+  </div>
+  <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left"></i> Voltar
+  </a>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header"><i class="bi bi-person-plus"></i> Bloquear login</div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('admin_bloqueados') }}">
+      <input type="hidden" name="acao" value="adicionar">
+      <div class="mb-3">
+        <label class="form-label">Logins</label>
+        <textarea name="logins" class="form-control" rows="4"
+                  placeholder="um login por linha, ex:&#10;fulano.silva&#10;beltrano.souza"></textarea>
+        <small class="text-muted">Um login por linha. Pode colar vários separados por vírgula.</small>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Motivo</label>
+        <input type="text" name="motivo" class="form-control" placeholder="Menos de 3 meses de empresa">
+      </div>
+      <button class="btn btn-primary"><i class="bi bi-lock"></i> Bloquear</button>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <i class="bi bi-lock"></i> Bloqueados
+    <span class="badge bg-secondary ms-1">{{ bloqueados|length }}</span>
+  </div>
+  <div class="card-body p-0">
+    {% if bloqueados %}
+    <table class="table table-hover mb-0 align-middle">
+      <thead>
+        <tr>
+          <th>Login</th>
+          <th>Motivo</th>
+          <th>Bloqueado em</th>
+          <th class="text-center" style="width:120px">Ação</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in bloqueados %}
+        <tr>
+          <td><code>{{ b.login }}</code></td>
+          <td class="text-muted small">{{ b.motivo or '-' }}</td>
+          <td class="text-muted small">{{ b.criado_em }}</td>
+          <td class="text-center">
+            <form method="POST" action="{{ url_for('admin_bloqueados') }}" onsubmit="return confirm('Desbloquear {{ b.login }}?')">
+              <input type="hidden" name="acao" value="remover">
+              <input type="hidden" name="login" value="{{ b.login }}">
+              <button class="btn btn-sm btn-outline-success"><i class="bi bi-unlock"></i> Desbloquear</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="text-center text-muted py-4">Nenhum login bloqueado.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

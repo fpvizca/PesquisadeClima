@@ -143,6 +143,9 @@
   <a href="{{ url_for('admin_trocar_senha') }}" class="nav-item {% if request.endpoint == 'admin_trocar_senha' %}active{% endif %}">
     <i class="bi bi-key"></i> Trocar Senha
   </a>
+  <a href="{{ url_for('admin_bloqueados') }}" class="nav-item {% if request.endpoint == 'admin_bloqueados' %}active{% endif %}">
+    <i class="bi bi-lock"></i> Logins Bloqueados
+  </a>
   {% endif %}
   <div style="flex:1"></div>
   <div style="border-top:1px solid rgba(255,255,255,0.1); padding:1rem 1.5rem;">
@@ -161,6 +164,7 @@
       {% elif request.endpoint in ('admin_formulario_estrutura', 'admin_secao_nova', 'admin_secao_editar', 'admin_pergunta_nova', 'admin_pergunta_editar') %}Gerenciar Formulário
       {% elif request.endpoint == 'admin_resultados' %}Resultados Gerais
       {% elif request.endpoint == 'admin_analise' %}Análise de Resultados
+      {% elif request.endpoint == 'admin_bloqueados' %}Logins Bloqueados
       {% else %}Pesquisa de Clima Vizca
       {% endif %}
     </h4>

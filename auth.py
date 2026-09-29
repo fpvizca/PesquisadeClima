@@ -3,6 +3,7 @@ import json
 import os
 import urllib.request
 import urllib.error
+from datetime import datetime
 from flask import session
 from db import get_db
 
@@ -49,13 +50,59 @@ def upsert_usuario_externo(user_data):
         db.commit()
         return c.lastrowid
 
+def usuario_bloqueado(login):
+    if not login:
+        return None
+    db = get_db()
+    return db.execute(
+        "SELECT * FROM usuarios_bloqueados WHERE lower(login) = lower(?)",
+        (login.strip(),)
+    ).fetchone()
+
+def mensagem_bloqueio(ano=None):
+    if not ano:
+        ano = os.environ.get('ANO_PESQUISA')
+    if not ano:
+        try:
+            db = get_db()
+            row = db.execute(
+                "SELECT ano FROM ciclos WHERE ativo = 1 ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+            ano_atual = datetime.now().year
+            ano = row['ano'] if row and row['ano'] >= ano_atual else ano_atual
+        except Exception:
+            ano = None
+    ano = ano or datetime.now().year
+    return (f'A pesquisa de clima VIZCA {ano} é direcionada para colaboradores com mais de '
+            '3 meses de empresa. Os colaboradores que não estiverem nesta situação poderão '
+            'participar da próxima pesquisa.')
+
+def _eh_bloqueado(user):
+    if not user or not user['login']:
+        return False
+    db = get_db()
+    return db.execute(
+        "SELECT 1 FROM usuarios_bloqueados WHERE lower(login) = lower(?)",
+        (user['login'],)
+    ).fetchone() is not None
+
+def _encerrar_sessao_bloqueada():
+    from flask import g, flash
+    session.pop('usuario_id', None)
+    if not getattr(g, '_bloqueio_notificado', False):
+        g._bloqueio_notificado = True
+        flash(mensagem_bloqueio(), 'danger')
+
 def usuario_logado():
     if 'usuario_id' in session:
         db = get_db()
         user = db.execute("SELECT * FROM usuarios WHERE id = ?", (session['usuario_id'],)).fetchone()
         if user:
-            return user
-        session.pop('usuario_id', None)
+            if not _eh_bloqueado(user):
+                return user
+            _encerrar_sessao_bloqueada()
+        else:
+            session.pop('usuario_id', None)
     return None
 
 def has_role(usuario_id, role):
@@ -71,6 +118,17 @@ def has_role(usuario_id, role):
         return r is not None
     return False
 
+def _bloqueado_no_cenario():
+    from flask import redirect, url_for
+    db = get_db()
+    user = db.execute("SELECT * FROM usuarios WHERE id = ?", (session['usuario_id'],)).fetchone()
+    if not user:
+        return None
+    if _eh_bloqueado(user):
+        _encerrar_sessao_bloqueada()
+        return redirect(url_for('index'))
+    return None
+
 def login_required(f):
     from functools import wraps
     @wraps(f)
@@ -79,6 +137,9 @@ def login_required(f):
             from flask import redirect, url_for, flash
             flash('Faça login para acessar.', 'warning')
             return redirect(url_for('index'))
+        bloqueio = _bloqueado_no_cenario()
+        if bloqueio is not None:
+            return bloqueio
         return f(*args, **kwargs)
     return decorated_function
 
@@ -90,6 +151,9 @@ def admin_required(f):
             from flask import redirect, url_for, flash
             flash('Faça login para acessar.', 'warning')
             return redirect(url_for('index'))
+        bloqueio = _bloqueado_no_cenario()
+        if bloqueio is not None:
+            return bloqueio
         if not has_role(session['usuario_id'], 'admin'):
             from flask import redirect, url_for, flash
             flash('Acesso negado. Apenas administradores.', 'danger')
