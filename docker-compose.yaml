@@ -4,8 +4,20 @@ services:
     build: .
     ports:
       - "8120:8120"
+    env_file:
+      - .env
     environment:
-      - SECRET_KEY=vizca-prod-secret-key
+      - SECRET_KEY=${SECRET_KEY:?defina SECRET_KEY no arquivo .env}
+      - DEBUG=false
+      - PORT=8120
+      - OLLAMA_BASE=${OLLAMA_BASE:-http://192.168.170.12:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-ministral-3:8b}
+      - API_BASE=${API_BASE:-https://relats.vizca.com.br}
+      - DATABASE_PATH=/app/data/clima.db
     volumes:
-      - .:/app
+      - clima_data:/app/data
+      - ./.env:/app/.env:ro
     restart: unless-stopped
+
+volumes:
+  clima_data:

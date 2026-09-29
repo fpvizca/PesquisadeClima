@@ -4,7 +4,10 @@ import os
 import sys
 from flask import g
 
-DATABASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'clima.db')
+DATABASE = os.environ.get(
+    'DATABASE_PATH',
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), 'clima.db')
+)
 
 def collate_noaccent(a, b):
     def norm(s):

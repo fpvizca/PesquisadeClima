@@ -1,13 +1,25 @@
 import os
 from datetime import datetime, timedelta
-from db import get_db, init_db, init_app
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from db import get_db, init_app
 from auth import hash_senha, api_request, upsert_usuario_externo, usuario_logado, has_role, usuario_bloqueado, mensagem_bloqueio
 from flask import Flask, render_template, request, redirect, session, url_for, flash
 
+SECRET_KEY_PADRAO = 'clima_vizca_secret_key_change_in_production'
+
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'clima_vizca_secret_key_change_in_production')
-app.permanent_session_lifetime = timedelta(minutes=20)
+app.secret_key = os.environ.get('SECRET_KEY') or SECRET_KEY_PADRAO
+app.permanent_session_lifetime = timedelta(minutes=int(os.environ.get('SESSION_MINUTES', '20')))
 init_app(app)
+
+_chave = app.secret_key
+if _chave == SECRET_KEY_PADRAO or len(str(_chave)) < 32:
+    print('AVISO: SECRET_KEY ausente, fraca ou igual ao padrao.')
+    print('       Sessions ficam inseguras e cao a cada reinicio.')
+    print('       Defina SECRET_KEY no arquivo .env antes de publicar.')
 
 from routes import init_all_routes
 init_all_routes(app)
@@ -82,6 +94,18 @@ def login():
         flash('Login realizado com sucesso! (modo local)', 'warning')
         return redirect(url_for('dashboard'))
 
+    # Diagnostico: a API externa e a unica forma de validar a maioria dos usuarios
+    if api_result.get('error') and user and user['senha_hash'] == 'api_externo':
+        flash('O servidor de autenticacao esta indisponivel no momento. '
+              'Tente novamente em alguns minutos.', 'warning')
+        return redirect(url_for('index'))
+
+    if api_result.get('error') == 'Servidor externo indisponível':
+        flash('Usuario ou senha invalidos. '
+              'Aviso: o servidor de autenticacao esta indisponivel, '
+              'o que pode impedir o acesso de usuarios externos.', 'warning')
+        return redirect(url_for('index'))
+
     flash('Usuário ou senha inválidos.', 'danger')
     return redirect(url_for('index'))
 
@@ -92,8 +116,9 @@ def logout():
     return redirect(url_for('index'))
 
 if __name__ == '__main__':
-    with app.app_context():
-        init_db(app)
-        db = get_db()
-        db.commit()
-    app.run(debug=os.environ.get('DEBUG', 'true').lower() == 'true', port=5005)
+    from migrar import aplicar
+    aplicar()
+
+    debug = os.environ.get('DEBUG', 'false').lower() == 'true'
+    porta = int(os.environ.get('PORT', '5005'))
+    app.run(debug=debug, host=os.environ.get('HOST', '127.0.0.1'), port=porta)
