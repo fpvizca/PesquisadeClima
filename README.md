@@ -102,6 +102,26 @@ indisponível, o sistema tenta o login local — mas **apenas o `admin` tem senh
 local**, então uma queda da API impede o acesso de todos os colaboradores até
 que ela volte. A tela de login avisa quando detecta esse cenário.
 
+## Anonimato
+
+O ciclo de vida de uma resposta é:
+
+1. **Enquanto o ciclo está aberto** — `respostas.usuario_id` guarda quem
+   respondeu, para que o colaborador possa consultar e editar as próprias
+   respostas. É um vínculo **pseudonimizado**, não anônimo.
+2. **Ao anonimizar o ciclo** — o administrador clica no botão de escudo em
+   *Gerenciar Ciclos*. Todas as respostas do ciclo têm o `usuario_id` definido
+   como `NULL` e `ciclos.anonimizado_em` é gravado. O vínculo é removido de
+   forma definitiva e **não pode ser desfeito**.
+
+Depois da anonimização as respostas não podem mais ser editadas, e
+`COUNT(DISTINCT usuario_id)` passa a retornar zero — por isso as telas de
+resultados exibem "Respondentes: 0" nesse estado.
+
+Para quem tem acesso ao arquivo `clima.db`: a operação zera o vínculo de todas
+as respostas do ciclo, portanto um `JOIN respostas → usuarios` deixa de
+reconstruir quem respondeu o quê.
+
 ## Logins bloqueados
 
 Colaboradores com menos de 3 meses de empresa recebem a mensagem:

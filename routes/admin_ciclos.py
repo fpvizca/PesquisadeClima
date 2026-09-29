@@ -143,3 +143,40 @@ def init_routes(app):
         db.commit()
         flash('Ciclo ativado com sucesso!', 'success')
         return redirect(url_for('admin_ciclos'))
+
+    @app.route('/admin/ciclos/<int:ciclo_id>/anonimizar', methods=['POST'])
+    @login_required
+    def admin_ciclo_anonimizar(ciclo_id):
+        db = get_db()
+        if not has_role(session['usuario_id'], 'admin'):
+            flash('Acesso negado.', 'danger')
+            return redirect(url_for('pesquisa'))
+
+        ciclo = db.execute("SELECT * FROM ciclos WHERE id = ?", (ciclo_id,)).fetchone()
+        if not ciclo:
+            flash('Ciclo não encontrado.', 'warning')
+            return redirect(url_for('admin_ciclos'))
+
+        if ciclo['anonimizado_em']:
+            flash('Este ciclo já foi anonimizado.', 'info')
+            return redirect(url_for('admin_ciclos'))
+
+        # Desvincula o respondente de cada resposta. Sem usuario_id nao ha mais
+        # como saber quem respondeu o que, e a edicao deixa de ser possivel.
+        afetadas = db.execute(
+            "UPDATE respostas SET usuario_id = NULL WHERE ciclo_id = ? AND usuario_id IS NOT NULL",
+            (ciclo_id,)
+        ).rowcount
+
+        db.execute(
+            "UPDATE ciclos SET anonimizado_em = CURRENT_TIMESTAMP WHERE id = ?",
+            (ciclo_id,)
+        )
+        db.commit()
+
+        flash(
+            f'Ciclo anonimizado. {afetadas} resposta(s) foram desvinculadas de '
+            'seus respondentes e não poderão mais ser editadas.',
+            'success'
+        )
+        return redirect(url_for('admin_ciclos'))

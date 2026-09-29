@@ -22,6 +22,9 @@
           {% else %}
             <span class="badge bg-secondary ms-2">Inativo</span>
           {% endif %}
+          {% if ciclo.anonimizado_em %}
+            <span class="badge bg-info ms-2"><i class="bi bi-shield-check"></i> Anonimizado</span>
+          {% endif %}
         </h5>
         <p class="text-muted mb-2">
           <i class="bi bi-calendar"></i> Ano: <strong>{{ ciclo.ano }}</strong>
@@ -35,6 +38,13 @@
             &nbsp;|&nbsp; <i class="bi bi-calendar-check"></i> Fim: <strong>{{ ciclo.data_fim }}</strong>
           {% endif %}
         </p>
+        {% if ciclo.anonimizado_em %}
+        <div class="alert alert-info py-2 px-3 mb-0 small">
+          <i class="bi bi-shield-lock"></i>
+          Respostas anonimizadas em {{ ciclo.anonimizado_em }}.
+          O vínculo entre colaborador e resposta foi removido e as respostas não podem mais ser editadas.
+        </div>
+        {% endif %}
       </div>
       <div class="d-flex gap-2">
         {% if not ciclo.ativo %}
@@ -47,6 +57,14 @@
         <a href="{{ url_for('admin_ciclo_editar', ciclo_id=ciclo.id) }}" class="btn btn-sm btn-outline-primary" title="Editar">
           <i class="bi bi-pencil"></i>
         </a>
+        {% if not ciclo.anonimizado_em %}
+        <form method="POST" action="{{ url_for('admin_ciclo_anonimizar', ciclo_id=ciclo.id) }}" class="d-inline"
+              onsubmit="return confirm('Anonimizar as respostas deste ciclo?\n\nO vínculo entre colaborador e resposta será removido DEFINITIVAMENTE.\nDepois disso nenhuma resposta poderá mais ser editada.\n\nDeseja continuar?')">
+          <button type="submit" class="btn btn-sm btn-outline-info" title="Anonimizar respostas">
+            <i class="bi bi-shield-lock"></i>
+          </button>
+        </form>
+        {% endif %}
         <form method="POST" action="{{ url_for('admin_ciclo_excluir', ciclo_id=ciclo.id) }}" class="d-inline"
               onsubmit="return confirm('Tem certeza que deseja excluir este ciclo?')">
           <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">

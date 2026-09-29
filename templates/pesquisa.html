@@ -14,7 +14,7 @@
 
     {% if ja_respondeu %}
       <div class="alert alert-success mt-4">
-        <i class="bi bi-check-circle"></i> Suas respostas são <strong>anônimas</strong> e foram registradas com sucesso.
+        <i class="bi bi-check-circle"></i> Suas respostas foram registradas com sucesso e serão <strong>anonimizadas</strong> no encerramento do ciclo.
       </div>
       <p class="mt-3">
         Se quiser consultar ou editar suas respostas, clique
@@ -26,7 +26,7 @@
     {% else %}
       {% if not ciclo.texto_abertura %}
       <p class="mt-4">Esta pesquisa contém <strong>{{ total_perguntas }}</strong> perguntas divididas em <strong>{{ secoes|length }}</strong> seções.</p>
-      <p class="text-muted">Suas respostas são anônimas e contribuem para melhorar o ambiente de trabalho na Vizca.</p>
+      <p class="text-muted">Suas respostas não são vinculadas ao seu nome nos relatórios. No encerramento do ciclo elas serão anonimizadas de forma definitiva, e nem a administração poderá identificar quem respondeu o quê.</p>
       {% endif %}
 
       <a href="{{ url_for('pesquisa_secao', secao_id=secoes[0].id) }}" class="btn btn-primary btn-lg mt-4">

@@ -75,6 +75,7 @@ CREATE TABLE IF NOT EXISTS ciclos (
     data_fim        TEXT,
     titulo          TEXT,
     texto_abertura  TEXT,
+    anonimizado_em  DATETIME,
     ativo           INTEGER NOT NULL DEFAULT 1,
     criado_em       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (formulario_id) REFERENCES formularios(id) ON DELETE SET NULL

@@ -58,6 +58,13 @@ def init_routes(app):
             flash('Nenhum ciclo encontrado.', 'warning')
             return redirect(url_for('dashboard'))
 
+        # Ciclo anonimizado: o vinculo responsavel<->resposta foi removido,
+        # entao nao ha mais o que editar nem a quem pertencer a resposta.
+        if ciclo['anonimizado_em']:
+            flash('Esta pesquisa foi encerrada e as respostas foram anonimizadas. '
+                  'Não é mais possível respondê-la ou editá-la.', 'info')
+            return redirect(url_for('pesquisa'))
+
         # Fetch sections linked to the cycle's form
         if ciclo['formulario_id']:
             secoes = db.execute(
@@ -163,6 +170,11 @@ def init_routes(app):
         cookie_name = f'clima_respondeu_{ciclo["id"]}'
         ja_respondeu_cookie = request.cookies.get(cookie_name)
         ja_respondeu = ja_respondeu_cookie == '1'
+
+        # Apos anonimizar nao existe mais vinculo com o responsavel, logo as
+        # respostas do ciclo sao agregadas e nao mais Individuals.
+        if ciclo['anonimizado_em']:
+            ja_respondeu = False
 
         # Fetch sections linked to the cycle's form
         respostas_por_secao = []
@@ -273,11 +285,20 @@ def init_routes(app):
             dados.append({'secao': secao, 'perguntas': perguntas_com_stats})
 
         total_habilitados = db.execute(
-            "SELECT COUNT(*) as c FROM usuario_roles WHERE role = 'colaborador'"
+            "SELECT COUNT(DISTINCT ur.usuario_id) as c FROM usuario_roles ur "
+            "JOIN usuarios u ON u.id = ur.usuario_id "
+            "WHERE ur.role = 'colaborador' AND u.ativo = 1"
         ).fetchone()['c']
 
         total_respostas = db.execute(
             "SELECT COUNT(*) as c FROM respostas WHERE ciclo_id = ?",
+            (ciclo['id'],)
+        ).fetchone()['c']
+
+        # Ciclo anonimizado perde o vinculo com o respondente
+        respondentes = db.execute(
+            "SELECT COUNT(DISTINCT usuario_id) as c FROM respostas "
+            "WHERE ciclo_id = ? AND usuario_id IS NOT NULL",
             (ciclo['id'],)
         ).fetchone()['c']
 
@@ -286,7 +307,8 @@ def init_routes(app):
             ciclos=ciclos,
             dados=dados,
             total_habilitados=total_habilitados,
-            total_respostas=total_respostas
+            total_respostas=total_respostas,
+            respondentes=respondentes
         )
 
     @app.route('/admin/analise')
@@ -322,11 +344,19 @@ def init_routes(app):
             secoes = db.execute("SELECT * FROM secoes WHERE ativo = 1 ORDER BY ordem").fetchall()
 
         total_habilitados = db.execute(
-            "SELECT COUNT(*) as c FROM usuario_roles WHERE role = 'colaborador'"
+            "SELECT COUNT(DISTINCT ur.usuario_id) as c FROM usuario_roles ur "
+            "JOIN usuarios u ON u.id = ur.usuario_id "
+            "WHERE ur.role = 'colaborador' AND u.ativo = 1"
         ).fetchone()['c']
 
         total_respostas_db = db.execute(
             "SELECT COUNT(*) as c FROM respostas WHERE ciclo_id = ?",
+            (ciclo['id'],)
+        ).fetchone()['c']
+
+        respondentes = db.execute(
+            "SELECT COUNT(DISTINCT usuario_id) as c FROM respostas "
+            "WHERE ciclo_id = ? AND usuario_id IS NOT NULL",
             (ciclo['id'],)
         ).fetchone()['c']
 
@@ -412,6 +442,7 @@ def init_routes(app):
             dados_secoes=dados_secoes,
             total_habilitados=total_habilitados,
             total_respostas=total_respostas_db,
+            respondentes=respondentes,
             perguntas_abertas=perguntas_abertas,
             comentarios=comentarios
         )
@@ -539,8 +570,17 @@ Seja objetivo, use dados numéricos e escreva em português brasileiro profissio
         ws_resumo['A1'] = ciclo['nome']
         ws_resumo['A1'].font = Font(name='Arial', bold=True, size=14, color='1F4E79')
 
+        # Habilitados e respondentes sao sempre contagens de PESSOAS, nunca de
+        # linhas de resposta (cada pessoa gera uma linha por pergunta).
         total_habilitados = db.execute(
-            "SELECT COUNT(*) as c FROM usuario_roles WHERE role = 'colaborador'"
+            "SELECT COUNT(DISTINCT usuario_id) as c FROM usuario_roles ur "
+            "JOIN usuarios u ON u.id = ur.usuario_id "
+            "WHERE ur.role = 'colaborador' AND u.ativo = 1"
+        ).fetchone()['c']
+
+        respondentes = db.execute(
+            "SELECT COUNT(DISTINCT usuario_id) as c FROM respostas WHERE ciclo_id = ? AND usuario_id IS NOT NULL",
+            (ciclo['id'],)
         ).fetchone()['c']
 
         total_respostas = db.execute(
@@ -548,7 +588,9 @@ Seja objetivo, use dados numéricos e escreva em português brasileiro profissio
             (ciclo['id'],)
         ).fetchone()['c']
 
-        ws_resumo['A2'] = f'Habilitados: {total_habilitados} | Respostas: {total_respostas}'
+        ws_resumo['A2'] = (f'Habilitados: {total_habilitados} | '
+                           f'Respondentes: {respondentes} | '
+                           f'Respuestas registradas: {total_respostas}')
         ws_resumo['A2'].font = Font(name='Arial', size=10, italic=True)
 
         # Fetch sections linked to the cycle's form
@@ -773,10 +815,17 @@ Seja objetivo, use dados numéricos e escreva em português brasileiro profissio
             return redirect(url_for('dashboard'))
 
         total_habilitados = db.execute(
-            "SELECT COUNT(*) as c FROM usuario_roles WHERE role = 'colaborador'"
+            "SELECT COUNT(DISTINCT ur.usuario_id) as c FROM usuario_roles ur "
+            "JOIN usuarios u ON u.id = ur.usuario_id "
+            "WHERE ur.role = 'colaborador' AND u.ativo = 1"
         ).fetchone()['c']
         total_respostas = db.execute(
             "SELECT COUNT(*) as c FROM respostas WHERE ciclo_id = ?",
+            (ciclo['id'],)
+        ).fetchone()['c']
+        respondentes = db.execute(
+            "SELECT COUNT(DISTINCT usuario_id) as c FROM respostas "
+            "WHERE ciclo_id = ? AND usuario_id IS NOT NULL",
             (ciclo['id'],)
         ).fetchone()['c']
 
@@ -850,8 +899,14 @@ Seja objetivo, use dados numéricos e escreva em português brasileiro profissio
         p = doc.add_paragraph()
         run = p.add_run('Participação: ')
         run.bold = True
-        p.add_run(f'{total_respostas} respostas de {total_habilitados} colaboradores habilitados '
-                  f'({round(total_respostas / total_habilitados * 100, 1) if total_habilitados > 0 else 0}% de adesão)')
+        if respondentes > 0:
+            p.add_run(f'{respondentes} respondente(s) de {total_habilitados} colaboradores habilitados '
+                      f'({round(respondentes / total_habilitados * 100, 1) if total_habilitados > 0 else 0}% de adesão). '
+                      f'{total_respostas} resposta(s) registradas no total.')
+        else:
+            p.add_run(f'Não foi possível identificar respondentes neste ciclo '
+                      f'({total_respostas} resposta(s) registradas). '
+                      f'{total_habilitados} colaboradores habilitados.')
 
         # Análise IA Geral
         try:

@@ -80,7 +80,11 @@ def aplicar(verbose=True):
             log(f'  [--] seed.sql ignorado ({total} usuarios existentes)')
 
         # --- Colunas adicionadas em migrate_v4.sql ---
-        for col, tipo in (('titulo', 'TEXT'), ('texto_abertura', 'TEXT')):
+        for col, tipo in (
+            ('titulo', 'TEXT'),
+            ('texto_abertura', 'TEXT'),
+            ('anonimizado_em', 'DATETIME'),
+        ):
             if _add_coluna(db, 'ciclos', col, tipo):
                 log(f'  [ok] ciclos.{col} adicionada')
             else:
