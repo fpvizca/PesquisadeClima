@@ -20,8 +20,9 @@
             </div>
             <div class="col-md-3">
               <label for="codigo" class="form-label">Código</label>
-              <input type="text" class="form-control" id="codigo" name="codigo"
-                     value="{{ pergunta.codigo if pergunta else '' }}" placeholder="Ex: Q1">
+              <input type="text" class="form-control" id="codigo" name="codigo" readonly
+                     value="{{ pergunta.codigo if pergunta else '' }}" placeholder="Automático">
+              <div class="form-text">Definido automaticamente pela ordem das perguntas.</div>
             </div>
             <div class="col-md-3">
               <label for="ordem" class="form-label">Ordem</label>

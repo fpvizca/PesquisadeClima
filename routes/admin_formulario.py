@@ -5,7 +5,7 @@ from db import get_db
 
 def init_routes(app):
 
-    def _renumerar_perguntasformulario(db, formulario_id):
+    def _renumerar_perguntas_formulario(db, formulario_id):
         secoes = db.execute(
             "SELECT id FROM secoes WHERE formulario_id = ? AND ativo = 1 ORDER BY ordem",
             (formulario_id,)
@@ -173,7 +173,7 @@ def init_routes(app):
         db.execute("UPDATE secoes SET ordem = ? WHERE id = ?", (vizinha['ordem'], secao_id))
         db.execute("UPDATE secoes SET ordem = ? WHERE id = ?", (secao['ordem'], vizinha['id']))
 
-        _renumerar_perguntasformulario(db, secao['formulario_id'])
+        _renumerar_perguntas_formulario(db, secao['formulario_id'])
 
         db.commit()
         return redirect(url_for('admin_formulario_estrutura', formulario_id=secao['formulario_id']))
@@ -207,6 +207,8 @@ def init_routes(app):
                 "INSERT INTO perguntas (secao_id, codigo, texto, tipo, obrigatoria, opcoes, grid_rows, ordem, condicional, condicao_pergunta, condicao_valor) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (nova_secao_id, p['codigo'], p['texto'], p['tipo'], p['obrigatoria'], p['opcoes'], p['grid_rows'], p['ordem'], p['condicional'], p['condicao_pergunta'], p['condicao_valor'])
             )
+
+        _renumerar_perguntas_formulario(db, secao['formulario_id'])
 
         db.commit()
         flash('Seção duplicada com sucesso!', 'success')
@@ -245,6 +247,7 @@ def init_routes(app):
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (secao_id, codigo, texto, descricao if descricao else None, tipo, obrigatoria, opcoes if opcoes else None, grid_rows if grid_rows else None, ordem)
             )
+            _renumerar_perguntas_formulario(db, formulario_id)
             db.commit()
             flash('Pergunta criada com sucesso!', 'success')
             return redirect(url_for('admin_formulario_estrutura', formulario_id=formulario_id))
@@ -294,6 +297,7 @@ def init_routes(app):
                    opcoes = ?, grid_rows = ?, ordem = ? WHERE id = ?""",
                 (secao_id, codigo, texto, descricao if descricao else None, tipo, obrigatoria, opcoes if opcoes else None, grid_rows if grid_rows else None, ordem, pergunta_id)
             )
+            _renumerar_perguntas_formulario(db, formulario_id)
             db.commit()
             flash('Pergunta atualizada com sucesso!', 'success')
             return redirect(url_for('admin_formulario_estrutura', formulario_id=formulario_id))
@@ -313,7 +317,7 @@ def init_routes(app):
         db.execute("UPDATE perguntas SET ativo = 0 WHERE id = ?", (pergunta_id,))
 
         # Renumber all questions in the form globally
-        _renumerar_perguntasformulario(db, secao['formulario_id'])
+        _renumerar_perguntas_formulario(db, secao['formulario_id'])
 
         db.commit()
         flash('Pergunta excluída com sucesso!', 'success')
@@ -348,7 +352,7 @@ def init_routes(app):
         db.execute("UPDATE perguntas SET ordem = ? WHERE id = ?", (vizinha['ordem'], pergunta_id))
         db.execute("UPDATE perguntas SET ordem = ? WHERE id = ?", (pergunta['ordem'], vizinha['id']))
 
-        _renumerar_perguntasformulario(db, formulario_id)
+        _renumerar_perguntas_formulario(db, formulario_id)
 
         db.commit()
         return redirect(url_for('admin_formulario_estrutura', formulario_id=formulario_id))
@@ -377,10 +381,11 @@ def init_routes(app):
         db.execute(
             """INSERT INTO perguntas (secao_id, codigo, texto, tipo, obrigatoria, opcoes, grid_rows, ordem, condicional, condicao_pergunta, condicao_valor)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (pergunta['secao_id'], pergunta['codigo'] + '_copia', pergunta['texto'], pergunta['tipo'],
+            (pergunta['secao_id'], '', pergunta['texto'], pergunta['tipo'],
              pergunta['obrigatoria'], pergunta['opcoes'], pergunta['grid_rows'], max_ordem + 1,
              pergunta['condicional'], pergunta['condicao_pergunta'], pergunta['condicao_valor'])
         )
+        _renumerar_perguntas_formulario(db, formulario_id)
         db.commit()
         flash('Pergunta duplicada com sucesso!', 'success')
         return redirect(url_for('admin_formulario_estrutura', formulario_id=formulario_id))
