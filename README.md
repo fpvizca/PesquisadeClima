@@ -71,8 +71,41 @@ automatically at first access — they have no local password.
 | `API_BASE`      | `https://relats.vizca.com.br`     | API de autenticação                        |
 | `OLLAMA_BASE`   | `http://192.168.170.12:11434`     | Endereço do Ollama                         |
 | `OLLAMA_MODEL`  | `ministral-3:8b`                  | Modelo usado na análise por IA              |
+| `OLLAMA_TIMEOUT` | `20`                             | Segundos por chamada ao Ollama             |
+| `OLLAMA_CACHE_MAX` | `300`                          | Análises guardadas em memória (por processo) |
+| `OLLAMA_COOLDOWN` | `60`                           | Segundos de pausa após uma falha do Ollama  |
+| `EXPORTAR_WORD_IA` | `1`                            | `0` desliga as análises por IA no Word    |
+| `EXPORTAR_WORD_IA_MAX` | `40`                      | Teto de análises por IA na exportação Word |
 | `ANO_PESQUISA`  | ano do ciclo ativo ou ano atual   | Ano citado na mensagem de bloqueio         |
 | `DATABASE_PATH` | `./clima.db`                      | Caminho do banco SQLite                    |
+
+### Análise por IA
+
+O `ollama_helper.py` não segura requisição travada: cada chamada tem timeout
+curto, respostas idênticas são reaproveitadas de um cache em memória (chave
+SHA-256 de modelo + prompt) e, após uma falha, o helper para de tentar a rede
+durante o cooldown. Se o Ollama estiver fora do ar, a tela mostra o erro e o
+resto do sistema continua funcionando.
+
+A exportação em Word gera uma análise por pergunta, o que pode chegar a ~90
+chamadas. Por isso ela respeita `EXPORTAR_WORD_IA_MAX` e, quando analyses ficam
+de fora, grava uma nota no final do documento informando quantas foram
+inclusas e quantas foram omitidas.
+
+## Testes
+
+A suíte usa apenas a biblioteca padrão e roda contra um banco temporário, sem
+tocar no `clima.db` e sem depender da rede:
+
+```bash
+venv/Scripts/python.exe -m unittest discover -s tests -t . -v   # Windows
+python3 -m unittest discover -s tests -t . -v                   # Linux
+```
+
+Cobertura: autenticação e bloqueios, permissões, resposta parcial e
+obrigatórias, CRUD do formulário com renumeração de `Q<n>`, ciclos e
+anonimização, página de análise, API de IA (incluindo degradação sem Ollama),
+cache/timeout/circuit breaker do `ollama_helper` e exportações Excel/Word.
 
 ## Banco de dados e migrations
 

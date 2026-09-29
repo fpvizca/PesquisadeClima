@@ -1,4 +1,5 @@
 import json
+import os
 import statistics
 from flask import render_template, request, redirect, session, url_for, flash, jsonify, send_file
 from auth import login_required, has_role
@@ -808,6 +809,20 @@ Seja objetivo, use dados numéricos e escreva em português brasileiro profissio
             flash('Acesso negado.', 'danger')
             return redirect(url_for('pesquisa'))
 
+        # O export gera ~90 analises (1 geral + secoes + 74 perguntas). Sem teto,
+        # uma unica exportacao pode passar do timeout do Gunicorn. O limite e
+        # configuravel por ambiente e as analises omitidas sao avisadas no doc.
+        ia_limite = int(os.environ.get('EXPORTAR_WORD_IA_MAX', '40'))
+        ia_ativa = os.environ.get('EXPORTAR_WORD_IA', '1').lower() not in ('0', 'false', 'nao', 'não')
+        ia_geradas = {'n': 0, 'omitidas': 0}
+
+        def gerar_ia(prompt):
+            if not ia_ativa or ia_geradas['n'] >= ia_limite:
+                ia_geradas['omitidas'] += 1
+                return ''
+            ia_geradas['n'] += 1
+            return ollama_generate(prompt) or ''
+
         ciclo_id = request.args.get('ciclo_id', type=int)
         if ciclo_id:
             ciclo = db.execute("SELECT * FROM ciclos WHERE id = ?", (ciclo_id,)).fetchone()
@@ -981,7 +996,7 @@ Dados:
 
 Escreva uma análise geral (10-15 linhas) cobrindo: resumo executivo, pontos fortes, pontos de atenção, tendências, recomendações. Portugês profissional."""
 
-            analise_geral = ollama_generate(prompt_geral)
+            analise_geral = gerar_ia(prompt_geral)
             if analise_geral and 'Erro' not in analise_geral:
                 h_ia = doc.add_heading('Análise Geral IA', level=2)
                 for run in h_ia.runs:
@@ -1055,7 +1070,6 @@ Escreva uma análise geral (10-15 linhas) cobrindo: resumo executivo, pontos for
         import matplotlib.pyplot as plt
         import matplotlib.ticker as mticker
         import tempfile
-        import os
 
         tmp_dir = tempfile.mkdtemp()
 
@@ -1237,7 +1251,7 @@ Comentários: {json.dumps([r['comentario'] for r in comentarios_p[:5]], ensure_a
 
 Escreva 3-5 linhas: o que revela, resultado, comentários relevantes. Portugês profissional."""
 
-                        analise_pergunta = ollama_generate(prompt_pergunta)
+                        analise_pergunta = gerar_ia(prompt_pergunta)
                         if analise_pergunta and 'Erro' not in analise_pergunta:
                             p_ia = doc.add_paragraph()
                             run_ia = p_ia.add_run(f'Análise IA: ')
@@ -1325,7 +1339,7 @@ Dados:
 
 Escreva uma análise curta (5-8 linhas) em português brasileiro profissional."""
 
-                analise_secao_texto = ollama_generate(prompt_secao)
+                analise_secao_texto = gerar_ia(prompt_secao)
                 if analise_secao_texto and 'Erro' not in analise_secao_texto:
                     h_ia = doc.add_heading('Análise IA', level=3)
                     for run in h_ia.runs:
@@ -1380,7 +1394,7 @@ Respostas coletadas ({len(textos_abertos)} amostras):
 
 Escreva uma análise (5-8 linhas) identificando: temas recorrentes, pontos positivos, pontos de atenção, sugestões mencionadas. Portugês profissional."""
 
-                analise_abertas = ollama_generate(prompt_abertas)
+                analise_abertas = gerar_ia(prompt_abertas)
                 if analise_abertas and 'Erro' not in analise_abertas:
                     h_ia = doc.add_heading('Análise IA - Respostas Abertas', level=2)
                     for run in h_ia.runs:
@@ -1412,6 +1426,18 @@ Escreva uma análise (5-8 linhas) identificando: temas recorrentes, pontos posit
             'Os dados coletados servem como base para o desenvolvimento de planos de ação '
             'que visam melhorar continuamente o ambiente de trabalho e a experiência dos colaboradores.'
         )
+
+        if ia_geradas['omitidas'] > 0:
+            doc.add_paragraph()
+            p_ia = doc.add_paragraph()
+            run_ia = p_ia.add_run(
+                f"Nota: {ia_geradas['omitidas']} análise(s) por IA não foram incluídas "
+                f"neste documento, atingiu o limite de {ia_limite} gerações por exportação "
+                f"({ia_geradas['n']} incluídas). O limite existe para que a exportação não "
+                f"exceda o tempo limite do servidor. Ele pode ser ajustado pelo administrador "
+                f"através da variável EXPORTAR_WORD_IA_MAX."
+            )
+            run_ia.italic = True
 
         # Limpar arquivos temporários
         import shutil
