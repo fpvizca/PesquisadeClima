@@ -369,12 +369,17 @@ async function gerarAnalisePergunta(secaoId, codigo, texto, nota, pct, total, di
   textDiv.innerHTML = '<div class="text-muted"><i class="bi bi-hourglass-split"></i> Gerando análise...</div>';
   row.style.display = 'block';
 
+  const comentsPergunta = comentarios.filter(r => r.codigo === codigo).slice(0, 10)
+    .map(r => ({codigo: r.codigo, comentario: r.comentario}));
+  const abertasPergunta = perguntasAbertas.filter(r => r.codigo === codigo).slice(0, 10)
+    .map(r => ({codigo: r.codigo, texto: r.valor}));
+
   try {
     const res = await fetch('/api/analise-ia', {
       method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
         secao: 'Pergunta ' + codigo,
-        dados: {media: nota, total: total, pct_satisfatorio: pct, distribuicao: distribuicao, texto_pergunta: texto}
+        dados: {media: nota, total: total, pct_satisfatorio: pct, distribuicao: distribuicao, texto_pergunta: texto, respostas_abertas: abertasPergunta, comentarios: comentsPergunta}
       })
     });
     const data = await res.json();

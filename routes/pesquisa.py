@@ -422,19 +422,19 @@ def init_routes(app):
                 'distribuicao': distribuicao
             })
 
-        perguntas_abertas = db.execute("""
+        perguntas_abertas = [dict(r) for r in db.execute("""
             SELECT p.codigo, p.texto, p.secao_id, s.nome as secao_nome, r.valor
             FROM respostas r JOIN perguntas p ON r.pergunta_id = p.id JOIN secoes s ON p.secao_id = s.id
             WHERE r.ciclo_id = ? AND p.tipo IN ('texto', 'paragrafo') AND r.valor IS NOT NULL AND r.valor != ''
             ORDER BY s.ordem, p.ordem
-        """, (ciclo['id'],)).fetchall()
+        """, (ciclo['id'],)).fetchall()]
 
-        comentarios = db.execute("""
+        comentarios = [dict(r) for r in db.execute("""
             SELECT p.codigo, p.texto, s.nome as secao_nome, r.comentario
             FROM respostas r JOIN perguntas p ON r.pergunta_id = p.id JOIN secoes s ON p.secao_id = s.id
             WHERE r.ciclo_id = ? AND r.comentario IS NOT NULL AND r.comentario != ''
             ORDER BY s.ordem, p.ordem
-        """, (ciclo['id'],)).fetchall()
+        """, (ciclo['id'],)).fetchall()]
 
         return render_template('admin_analise.html',
             ciclo=ciclo,
@@ -459,6 +459,7 @@ def init_routes(app):
 
         texto_pergunta = dados.get('texto_pergunta', '')
         comentarios_dados = dados.get('comentarios', [])
+        abertas_dados = dados.get('respostas_abertas', [])
 
         if texto_pergunta:
             prompt = f"""Gere uma análise profissional para a pergunta da pesquisa de clima organizacional:
@@ -476,6 +477,9 @@ Distribuição:
 
 Comentários dos colaboradores:
 {json.dumps(comentarios_dados, ensure_ascii=False, indent=2)}
+
+Respostas abertas desta pergunta:
+{json.dumps(abertas_dados, ensure_ascii=False, indent=2)}
 
 Escreva uma análise curta (5-8 linhas):
 1. O que esta pergunta revela
