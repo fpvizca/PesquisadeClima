@@ -46,17 +46,18 @@ persistem mesmo reconstruindo a imagem.
 
 ## Primeira configuração
 
-O `seed.sql` cria 4 usuários locais de teste (somente quando o banco está vazio):
+O `seed.sql` cria **apenas 1 usuário local**:
 
 | Login  | Senha     | Papel        |
 |--------|-----------|--------------|
 | admin  | admin123  | administrador|
-| joao   | 123456    | colaborador  |
-| maria  | 123456    | colaborador  |
-| pedro  | 123456    | colaborador  |
 
-**Troque essas senhas antes de usar em produção.** Os demais colaboradores
-entram pela API externa (não têm senha local).
+**Troque essa senha em "Trocar Senha" logo após o primeiro acesso.**
+
+Todos os demais colaboradores entram pela API externa e são criados
+automatically at first access — they have no local password.
+
+## Produção
 
 ## Variáveis de ambiente
 
@@ -97,9 +98,9 @@ aplicadas. Rode-os apenas para bancos muito antigos, manualmente e com backup.
 
 O login tenta primeiro a API externa (`relats.vizca.com.br`). Se ela responder,
 o usuário é criado/atualizado localmente e a sessão é iniciada. Se a API estiver
-indisponível, o sistema tenta o login local — mas **apenas os usuários do seed
-têm senha local**, então uma queda da API impede o acesso dos demais até que ela
-volte. A tela de login avisa quando detecta esse cenário.
+indisponível, o sistema tenta o login local — mas **apenas o `admin` tem senha
+local**, então uma queda da API impede o acesso de todos os colaboradores até
+que ela volte. A tela de login avisa quando detecta esse cenário.
 
 ## Logins bloqueados
 
@@ -119,7 +120,7 @@ Antes de publicar:
 
 - [ ] `DEBUG=false`
 - [ ] `SECRET_KEY` forte e única (trocar a cada implantação invalida as sessões)
-- [ ] Senhas dos 4 usuários do seed alteradas
+- [ ] Senha do `admin` alterada em "Trocar Senha"
 - [ ] HTTPS na frente da aplicação (Nginx ou proxy do corporate)
 - [ ] Backup do `clima.db`
 

@@ -3,19 +3,16 @@
 -- ============================================
 -- ATENCAO: Nao execute este script em producao.
 -- ============================================
+-- Somente o administrador tem senha local. Todos os demais colaboradores
+-- entram pela API externa (sem senha local).
+-- Troque a senha do admin em "Trocar Senha" apos o primeiro acesso.
+-- ============================================
 
 -- Seed: usuarios (senha padrao: admin123)
 INSERT OR IGNORE INTO usuarios (id, nome, login, email, senha_hash) VALUES (1, 'Administrador', 'admin', 'admin@empresa.com', '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9');
 
 -- Seed: roles (apenas admin)
 INSERT OR IGNORE INTO usuario_roles (usuario_id, role) VALUES (1, 'admin');
-
--- Colaboradores de exemplo (senhas: 123456)
-INSERT OR IGNORE INTO usuarios (id, nome, login, email, senha_hash) VALUES
-(2, 'João Silva', 'joao', 'joao@vizca.com', '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92'),
-(3, 'Maria Santos', 'maria', 'maria@vizca.com', '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92'),
-(4, 'Pedro Oliveira', 'pedro', 'pedro@vizca.com', '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92');
-INSERT OR IGNORE INTO usuario_roles (usuario_id, role) VALUES (2, 'colaborador'), (3, 'colaborador'), (4, 'colaborador');
 
 -- Formulário padrão
 INSERT OR IGNORE INTO formularios (id, nome, descricao, ativo) VALUES (1, 'Pesquisa de Clima Vizca 2025', 'Formulário completo da pesquisa de clima organizacional com 16 seções e 74 perguntas.', 1);

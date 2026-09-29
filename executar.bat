@@ -35,5 +35,8 @@ echo.
 echo Iniciando Pesquisa de Clima...
 echo Acesse: http://localhost:5005
 echo.
+echo Login inicial: admin / admin123  (troque em "Trocar Senha")
+echo Os colaboradores entram pela API de autenticacao.
+echo.
 venv\Scripts\python.exe app.py
 pause
