@@ -37,6 +37,25 @@ def indisponivel():
 
 
 def generate(prompt, model=None):
+    url = f"{OLLAMA_BASE}/api/generate"
+    payload = {"model": model or MODEL, "prompt": prompt, "stream": False}
+    data = json.dumps(payload).encode('utf-8')
+    req = urllib.request.Request(url, data=data, headers={'Content-Type': 'application/json'})
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            result = json.loads(resp.read().decode('utf-8'))
+            return result.get('response', '').strip()
+    except urllib.error.HTTPError as e:
+        return f"[Erro ao conectar com Ollama: HTTP {e.code}]"
+    except urllib.error.URLError as e:
+        return f"[Erro ao conectar com Ollama: {e.reason}]"
+    except Exception as e:
+        return f"[Erro inesperado: {str(e)}]"
+
+
+
+
+def x_generate(prompt, model=None):
     global _indisponivel_ate, _ultimo_erro
 
     model = model or MODEL
